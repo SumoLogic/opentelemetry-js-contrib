@@ -122,6 +122,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         SemanticAttributes.HTTP_USER_AGENT,
         navigator.userAgent
       );
+      rootSpan.setAttribute(SemanticAttributes.PAGE_TITLE, document.title);
 
       this._addResourcesSpans(rootSpan);
 
