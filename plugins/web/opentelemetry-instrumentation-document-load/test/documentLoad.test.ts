@@ -31,6 +31,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { DocumentLoadInstrumentation } from '../src';
 import { HttpAttribute } from '@opentelemetry/semantic-conventions';
+import { EventNames } from '../src/enums/EventNames';
 
 const exporter = new InMemorySpanExporter();
 const provider = new BasicTracerProvider();
@@ -174,6 +175,25 @@ const entriesFallback = {
   loadEventEnd: 1571078170394,
 } as any;
 
+const paintEntries: PerformanceEntryList = [
+  {
+    duration: 0,
+    entryType: 'paint',
+    name: 'first-paint',
+    startTime: 7.480000003241003,
+    toJSON() {},
+  },
+  {
+    duration: 0,
+    entryType: 'paint',
+    name: 'first-contentful-paint',
+    startTime: 8.480000003241003,
+    toJSON() {},
+  },
+];
+
+performance.getEntriesByType;
+
 const userAgent =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36';
 
@@ -241,6 +261,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns([]);
+      spyEntries.withArgs('paint').returns([]);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -249,7 +270,7 @@ describe('DocumentLoad Instrumentation', () => {
       plugin.enable();
       setTimeout(() => {
         assert.strictEqual(window.document.readyState, 'complete');
-        assert.strictEqual(spyEntries.callCount, 2);
+        assert.strictEqual(spyEntries.callCount, 3);
         done();
       });
     });
@@ -265,6 +286,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns([]);
+      spyEntries.withArgs('paint').returns([]);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -288,7 +310,7 @@ describe('DocumentLoad Instrumentation', () => {
         })
       );
       setTimeout(() => {
-        assert.strictEqual(spyEntries.callCount, 2);
+        assert.strictEqual(spyEntries.callCount, 3);
         done();
       });
     });
@@ -300,6 +322,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns([]);
+      spyEntries.withArgs('paint').returns(paintEntries);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -323,6 +346,12 @@ describe('DocumentLoad Instrumentation', () => {
         assert.strictEqual(fetchSpan.name, 'documentLoad');
         ensureNetworkEventsExists(rsEvents);
 
+        assert.strictEqual(fsEvents[9].name, EventNames.FIRST_PAINT);
+        assert.strictEqual(
+          fsEvents[10].name,
+          EventNames.FIRST_CONTENTFUL_PAINT
+        );
+
         assert.strictEqual(fsEvents[0].name, PTN.FETCH_START);
         assert.strictEqual(fsEvents[1].name, PTN.UNLOAD_EVENT_START);
         assert.strictEqual(fsEvents[2].name, PTN.UNLOAD_EVENT_END);
@@ -337,7 +366,7 @@ describe('DocumentLoad Instrumentation', () => {
         assert.strictEqual(fsEvents[8].name, PTN.LOAD_EVENT_END);
 
         assert.strictEqual(rsEvents.length, 9);
-        assert.strictEqual(fsEvents.length, 9);
+        assert.strictEqual(fsEvents.length, 11);
         assert.strictEqual(exporter.getFinishedSpans().length, 2);
         done();
       });
@@ -396,6 +425,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns(resources);
+      spyEntries.withArgs('paint').returns([]);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -433,6 +463,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns(resourcesNoSecureConnectionStart);
+      spyEntries.withArgs('paint').returns([]);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -474,6 +505,7 @@ describe('DocumentLoad Instrumentation', () => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entriesWithoutLoadEventEnd]);
       spyEntries.withArgs('resource').returns([]);
+      spyEntries.withArgs('paint').returns([]);
     });
     afterEach(() => {
       spyEntries.restore();
@@ -599,6 +631,8 @@ describe('DocumentLoad Instrumentation', () => {
         .withArgs('navigation')
         .returns([navEntriesWithNegativeFetch])
         .withArgs('resource')
+        .returns([])
+        .withArgs('paint')
         .returns([]);
 
       sandbox.stub(window.performance, 'timing').get(() => {
