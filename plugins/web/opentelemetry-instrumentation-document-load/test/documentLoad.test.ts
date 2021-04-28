@@ -318,14 +318,22 @@ describe('DocumentLoad Instrumentation', () => {
 
   describe('when navigation entries types are available', () => {
     let spyEntries: sinon.SinonStub;
+    let spyPerformanceObserver: sinon.SinonStub;
     beforeEach(() => {
       spyEntries = sandbox.stub(window.performance, 'getEntriesByType');
       spyEntries.withArgs('navigation').returns([entries]);
       spyEntries.withArgs('resource').returns([]);
       spyEntries.withArgs('paint').returns(paintEntries);
+
+      spyPerformanceObserver = sandbox.stub(
+        PerformanceObserver.prototype,
+        'takeRecords'
+      );
+      spyPerformanceObserver.returns([{ startTime: 23.23133 }]);
     });
     afterEach(() => {
       spyEntries.restore();
+      spyPerformanceObserver.restore();
     });
 
     it('should export correct span with events', done => {
@@ -351,6 +359,10 @@ describe('DocumentLoad Instrumentation', () => {
           fsEvents[10].name,
           EventNames.FIRST_CONTENTFUL_PAINT
         );
+        assert.strictEqual(
+          fsEvents[11].name,
+          EventNames.LARGEST_CONTENTFUL_PAINT
+        );
 
         assert.strictEqual(fsEvents[0].name, PTN.FETCH_START);
         assert.strictEqual(fsEvents[1].name, PTN.UNLOAD_EVENT_START);
@@ -366,7 +378,7 @@ describe('DocumentLoad Instrumentation', () => {
         assert.strictEqual(fsEvents[8].name, PTN.LOAD_EVENT_END);
 
         assert.strictEqual(rsEvents.length, 9);
-        assert.strictEqual(fsEvents.length, 11);
+        assert.strictEqual(fsEvents.length, 12);
         assert.strictEqual(exporter.getFinishedSpans().length, 2);
         done();
       });
