@@ -133,11 +133,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         PTN.DOM_CONTENT_LOADED_EVENT_START,
         entries
       );
-      addSpanNetworkEvent(
-        rootSpan,
-        PTN.DOM_CONTENT_LOADED_EVENT_END,
-        entries
-      );
+      addSpanNetworkEvent(rootSpan, PTN.DOM_CONTENT_LOADED_EVENT_END, entries);
       addSpanNetworkEvent(rootSpan, PTN.DOM_COMPLETE, entries);
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_START, entries);
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_END, entries);
