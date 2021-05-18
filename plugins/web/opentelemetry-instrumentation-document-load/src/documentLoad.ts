@@ -111,6 +111,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
           entries
         );
         if (fetchSpan) {
+          fetchSpan.setAttribute(HttpAttribute.HTTP_URL, location.href);
+          fetchSpan.setAttribute(HttpAttribute.HTTP_USER_AGENT, navigator.userAgent);
           context.with(setSpan(context.active(), fetchSpan), () => {
             addSpanNetworkEvents(fetchSpan, entries);
             this._endSpan(fetchSpan, PTN.RESPONSE_END, entries);
