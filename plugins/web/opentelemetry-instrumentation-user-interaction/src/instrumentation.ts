@@ -51,6 +51,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   moduleName = this.component;
   private _spansData = new WeakMap<api.Span, SpanData>();
   private _zonePatched?: boolean;
+  private _isEnabled = false
   // for addEventListener/removeEventListener state
   private _wrappedListeners = new WeakMap<
     Function | EventListenerObject,
@@ -572,6 +573,8 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * implements enable function
    */
   override enable() {
+    if (this._isEnabled) return
+    this._isEnabled = true
     const ZoneWithPrototype = this.getZoneWithPrototype();
     api.diag.debug(
       'applying patch to',
@@ -581,19 +584,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       !!ZoneWithPrototype
     );
     if (ZoneWithPrototype) {
-      if (isWrapped(ZoneWithPrototype.prototype.runTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'runTask');
-        api.diag.debug('removing previous patch from method runTask');
-      }
-      if (isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
-        api.diag.debug('removing previous patch from method scheduleTask');
-      }
-      if (isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-        api.diag.debug('removing previous patch from method cancelTask');
-      }
-
       this._zonePatched = true;
       this._wrap(
         ZoneWithPrototype.prototype,
@@ -614,18 +604,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       this._zonePatched = false;
       const targets = this._getPatchableEventTargets();
       targets.forEach(target => {
-        if (isWrapped(target.addEventListener)) {
-          this._unwrap(target, 'addEventListener');
-          api.diag.debug(
-            'removing previous patch from method addEventListener'
-          );
-        }
-        if (isWrapped(target.removeEventListener)) {
-          this._unwrap(target, 'removeEventListener');
-          api.diag.debug(
-            'removing previous patch from method removeEventListener'
-          );
-        }
         this._wrap(target, 'addEventListener', this._patchAddEventListener());
         this._wrap(
           target,
@@ -642,6 +620,8 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * implements unpatch function
    */
   override disable() {
+    if (!this._isEnabled) return
+    this._isEnabled = false
     const ZoneWithPrototype = this.getZoneWithPrototype();
     api.diag.debug(
       'removing patch from',
