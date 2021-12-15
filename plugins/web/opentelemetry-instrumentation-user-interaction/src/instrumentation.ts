@@ -186,7 +186,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   /**
-   * Returns true iff we should use the patched callback; false if it's already been patched
+   * Returns true if we should use the patched callback; false if it's already been patched
    */
   private addPatchedListener(
     on: HTMLElement,
@@ -194,6 +194,9 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
     listener: Function | EventListenerObject,
     wrappedListener: Function
   ): boolean {
+    if (listener == null) {
+      return true
+    }
     let listener2Type = this._wrappedListeners.get(listener);
     if (!listener2Type) {
       listener2Type = new Map();
@@ -268,7 +271,8 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
         useCapture: any
       ) {
         const once = useCapture && useCapture.once;
-        const patchedListener = (...args: any[]) => {
+        const addEventListenerContext = this
+        const patchedListener = function (this: any, ...args: any[]) {
           let parentSpan: api.Span | undefined;
           const event: Event | undefined = args[0];
           const target = event?.target;
@@ -276,7 +280,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
             parentSpan = plugin._eventsSpanMap.get(event);
           }
           if (once) {
-            plugin.removePatchedListener(this, type, listener);
+            plugin.removePatchedListener(addEventListenerContext, type, listener);
           }
           const span = plugin._createSpan(target, type, parentSpan);
           if (span) {
@@ -286,14 +290,14 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
             return api.context.with(
               api.trace.setSpan(api.context.active(), span),
               () => {
-                const result = plugin._invokeListener(listener, target, args);
+                const result = plugin._invokeListener(listener, this, args);
                 // no zone so end span immediately
                 span.end();
                 return result;
               }
             );
           } else {
-            return plugin._invokeListener(listener, target, args);
+            return plugin._invokeListener(listener, this, args);
           }
         };
         if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
