@@ -204,7 +204,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   /**
-   * Returns true iff we should use the patched callback; false if it's already been patched
+   * Returns true if we should use the patched callback; false if it's already been patched
    */
   private addPatchedListener(
     on: HTMLElement,
@@ -293,6 +293,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
         // filter out null (typeof null === 'object')
         const once =
           useCapture && typeof useCapture === 'object' && useCapture.once;
+        const addEventListenerContext = this
         const patchedListener = function (this: HTMLElement, ...args: any[]) {
           let parentSpan: api.Span | undefined;
           const event: Event | undefined = args[0];
@@ -301,7 +302,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
             parentSpan = plugin._eventsSpanMap.get(event);
           }
           if (once) {
-            plugin.removePatchedListener(this, type, listener);
+            plugin.removePatchedListener(addEventListenerContext, type, listener);
           }
           const span = plugin._createSpan(target, type, parentSpan);
           if (span) {
