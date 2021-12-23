@@ -28,15 +28,10 @@ import {
   UserInteractionInstrumentationConfig,
 } from './types';
 import {
-  AsyncTask,
-  RunTaskFunction,
   SpanData,
-  WindowWithZone,
-  ZoneTypeWithPrototype,
 } from './internal-types';
 import { VERSION } from './version';
 
-const ZONE_CONTEXT_KEY = 'OT_ZONE_CONTEXT';
 const EVENT_NAVIGATION_NAME = 'Navigation:';
 const DEFAULT_EVENT_NAMES: EventName[] = ['click'];
 
@@ -44,18 +39,14 @@ function defaultShouldPreventSpanCreation() {
   return false;
 }
 
-const queueMicrotask = self.queueMicrotask || ((callback) => { Promise.resolve().then(callback) })
-
 /**
  * This class represents a UserInteraction plugin for auto instrumentation.
- * If zone.js is available then it patches the zone otherwise it patches
- * addEventListener of HTMLElement
+ * It patches addEventListener of HTMLElement.
  */
 export class UserInteractionInstrumentation extends InstrumentationBase<unknown> {
   readonly version = VERSION;
   readonly moduleName: string = 'user-interaction';
   private _spansData = new WeakMap<api.Span, SpanData>();
-  private _zonePatched?: boolean;
   private _isEnabled = false
   // for addEventListener/removeEventListener state
   private _wrappedListeners = new WeakMap<
@@ -80,28 +71,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   init() {}
-
-  /**
-   * This will check if last task was timeout and will save the time to
-   * fix the user interaction when nothing happens
-   * This timeout comes from xhr plugin which is needed to collect information
-   * about last xhr main request from observer
-   * @param task
-   * @param span
-   */
-  private _checkForTimeout(task: AsyncTask, span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      if (task.source === 'setTimeout') {
-        spanData.hrTimeLastTimeout = hrTime();
-      } else if (
-        task.source !== 'Promise.then' &&
-        task.source !== 'setTimeout'
-      ) {
-        spanData.hrTimeLastTimeout = undefined;
-      }
-    }
-  }
 
   /**
    * Controls whether or not to create a span, based on the event type.
@@ -163,46 +132,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       this._diag.error('failed to start create new user interaction span', e);
     }
     return undefined;
-  }
-
-  /**
-   * Decrement number of tasks that left in zone,
-   * This is needed to be able to end span when no more tasks left
-   * @param span
-   */
-  private _decrementTask(span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      spanData.taskCount--;
-      if (spanData.taskCount === 0) {
-        this._tryToEndSpan(span, spanData.hrTimeLastTimeout);
-      }
-    }
-  }
-
-  /**
-   * Return the current span
-   * @param zone
-   * @private
-   */
-  private _getCurrentSpan(zone: Zone): api.Span | undefined {
-    const context: api.Context | undefined = zone.get(ZONE_CONTEXT_KEY);
-    if (context) {
-      return api.trace.getSpan(context);
-    }
-    return context;
-  }
-
-  /**
-   * Increment number of tasks that are run within the same zone.
-   *     This is needed to be able to end span when no more tasks left
-   * @param span
-   */
-  private _incrementTask(span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      spanData.taskCount++;
-    }
   }
 
   /**
@@ -276,7 +205,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   /**
    * This patches the addEventListener of HTMLElement to be able to
    * auto instrument the click events
-   * This is done when zone is not available
    */
   private _patchAddEventListener() {
     const plugin = this;
@@ -335,7 +263,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   /**
    * This patches the removeEventListener of HTMLElement to handle the fact that
    * we patched the original callbacks
-   * This is done when zone is not available
    */
   private _patchRemoveEventListener() {
     const plugin = this;
@@ -432,192 +359,26 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   /**
-   * Patches zone cancel task - this is done to be able to correctly
-   * decrement the number of remaining tasks
-   */
-  private _patchZoneCancelTask() {
-    const plugin = this;
-    return (original: any) => {
-      return function patchCancelTask<T extends Task>(
-        this: Zone,
-        task: AsyncTask
-      ) {
-        const currentZone = Zone.current;
-        const currentSpan = plugin._getCurrentSpan(currentZone);
-        if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-          plugin._decrementTask(currentSpan);
-        }
-        return original.call(this, task) as T;
-      };
-    };
-  }
-
-  /**
-   * Patches zone schedule task - this is done to be able to correctly
-   * increment the number of tasks running within current zone but also to
-   * save time in case of timeout running from xhr plugin when waiting for
-   * main request from PerformanceResourceTiming
-   */
-  private _patchZoneScheduleTask() {
-    const plugin = this;
-    return (original: any) => {
-      return function patchScheduleTask<T extends Task>(
-        this: Zone,
-        task: AsyncTask
-      ) {
-        const currentZone = Zone.current;
-        const currentSpan = plugin._getCurrentSpan(currentZone);
-        if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-          plugin._incrementTask(currentSpan);
-          plugin._checkForTimeout(task, currentSpan);
-        }
-        return original.call(this, task) as T;
-      };
-    };
-  }
-
-  /**
-   * Patches zone run task - this is done to be able to create a span when
-   * user interaction starts
-   * @private
-   */
-  private _patchZoneRunTask() {
-    const plugin = this;
-    return (original: RunTaskFunction): RunTaskFunction => {
-      return function patchRunTask(
-        this: Zone,
-        task: AsyncTask,
-        applyThis?: any,
-        applyArgs?: any
-      ): Zone {
-        const event =
-          Array.isArray(applyArgs) && applyArgs[0] instanceof Event
-            ? applyArgs[0]
-            : undefined;
-        const target = event?.target;
-        let span: api.Span | undefined;
-        const activeZone = this;
-        if (target) {
-          span = plugin._createSpan(target, task.eventName);
-          if (span) {
-            plugin._incrementTask(span);
-            return activeZone.run(() => {
-              try {
-                return api.context.with(
-                  api.trace.setSpan(api.context.active(), span!),
-                  () => {
-                    const currentZone = Zone.current;
-                    task._zone = currentZone;
-                    return original.call(
-                      currentZone,
-                      task,
-                      applyThis,
-                      applyArgs
-                    );
-                  }
-                );
-              } finally {
-                plugin._decrementTask(span as api.Span);
-              }
-            });
-          }
-        } else {
-          span = plugin._getCurrentSpan(activeZone);
-        }
-
-        try {
-          return original.call(activeZone, task, applyThis, applyArgs);
-        } finally {
-          if (span && plugin._shouldCountTask(task, activeZone)) {
-            plugin._decrementTask(span);
-          }
-        }
-      };
-    };
-  }
-
-  /**
-   * Decides if task should be counted.
-   * @param task
-   * @param currentZone
-   * @private
-   */
-  private _shouldCountTask(task: AsyncTask, currentZone: Zone): boolean {
-    if (task._zone) {
-      currentZone = task._zone;
-    }
-    if (!currentZone || !task.data || task.data.isPeriodic) {
-      return false;
-    }
-    const currentSpan = this._getCurrentSpan(currentZone);
-    if (!currentSpan) {
-      return false;
-    }
-    if (!this._spansData.get(currentSpan)) {
-      return false;
-    }
-    return task.type === 'macroTask' || task.type === 'microTask';
-  }
-
-  /**
-   * Will try to end span when such span still exists.
-   * @param span
-   * @param endTime
-   * @private
-   */
-  private _tryToEndSpan(span: api.Span, endTime?: api.HrTime) {
-    if (span) {
-      const spanData = this._spansData.get(span);
-      if (spanData) {
-        span.end(endTime);
-        this._spansData.delete(span);
-      }
-    }
-  }
-
-  /**
    * implements enable function
    */
   override enable() {
     if (this._isEnabled) return
     this._isEnabled = true
-    const ZoneWithPrototype = this.getZoneWithPrototype();
     this._diag.debug(
       'applying patch to',
       this.moduleName,
       this.version,
-      'zone:',
-      !!ZoneWithPrototype
     );
-    if (ZoneWithPrototype) {
-      this._zonePatched = true;
+
+    const targets = this._getPatchableEventTargets();
+    targets.forEach(target => {
+      this._wrap(target, 'addEventListener', this._patchAddEventListener());
       this._wrap(
-        ZoneWithPrototype.prototype,
-        'runTask',
-        this._patchZoneRunTask()
+        target,
+        'removeEventListener',
+        this._patchRemoveEventListener()
       );
-      this._wrap(
-        ZoneWithPrototype.prototype,
-        'scheduleTask',
-        this._patchZoneScheduleTask()
-      );
-      this._wrap(
-        ZoneWithPrototype.prototype,
-        'cancelTask',
-        this._patchZoneCancelTask()
-      );
-    } else {
-      this._zonePatched = false;
-      const targets = this._getPatchableEventTargets();
-      targets.forEach(target => {
-        this._wrap(target, 'addEventListener', this._patchAddEventListener());
-        this._wrap(
-          target,
-          'removeEventListener',
-          this._patchRemoveEventListener()
-        );
-      });
-    }
+    });
 
     this._patchHistoryApi();
   }
@@ -628,43 +389,20 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   override disable() {
     if (!this._isEnabled) return
     this._isEnabled = false
-    const ZoneWithPrototype = this.getZoneWithPrototype();
     this._diag.debug(
       'removing patch from',
       this.moduleName,
       this.version,
-      'zone:',
-      !!ZoneWithPrototype
     );
-    if (ZoneWithPrototype && this._zonePatched) {
-      if (isWrapped(ZoneWithPrototype.prototype.runTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'runTask');
+    const targets = this._getPatchableEventTargets();
+    targets.forEach(target => {
+      if (isWrapped(target.addEventListener)) {
+        this._unwrap(target, 'addEventListener');
       }
-      if (isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
+      if (isWrapped(target.removeEventListener)) {
+        this._unwrap(target, 'removeEventListener');
       }
-      if (isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-      }
-    } else {
-      const targets = this._getPatchableEventTargets();
-      targets.forEach(target => {
-        if (isWrapped(target.addEventListener)) {
-          this._unwrap(target, 'addEventListener');
-        }
-        if (isWrapped(target.removeEventListener)) {
-          this._unwrap(target, 'removeEventListener');
-        }
-      });
-    }
+    });
     this._unpatchHistoryApi();
-  }
-
-  /**
-   * returns Zone
-   */
-  getZoneWithPrototype(): ZoneTypeWithPrototype | undefined {
-    const _window: WindowWithZone = window as unknown as WindowWithZone;
-    return _window.Zone;
   }
 }
