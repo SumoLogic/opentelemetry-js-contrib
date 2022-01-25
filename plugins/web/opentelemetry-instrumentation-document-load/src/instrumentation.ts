@@ -153,12 +153,13 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_START, entries);
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_END, entries);
 
-      addSpanPerformancePaintEvents(rootSpan);
       this._addCustomAttributesOnSpan(
         rootSpan,
         this._getConfig().applyCustomAttributesOnSpan?.documentLoad
       );
-      this._endSpan(rootSpan, PTN.LOAD_EVENT_END, entries);
+      addSpanPerformancePaintEvents(rootSpan, () => {
+        this._endSpan(rootSpan, PTN.LOAD_EVENT_END, entries);
+      });
     });
   }
 
