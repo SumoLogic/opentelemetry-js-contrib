@@ -39,6 +39,8 @@ function defaultShouldPreventSpanCreation() {
   return false;
 }
 
+const getCurrentLocation = () => `${location.pathname}${location.search}${location.hash}`;
+
 /**
  * This class represents a UserInteraction plugin for auto instrumentation.
  * It patches addEventListener of HTMLElement.
@@ -248,13 +250,20 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
               }
             );
             if (event && !eventSpan) {
-              // end span when all other listeners ends
+              // end span when all other listeners end and wait 100ms for possible navigation change
               setTimeout(() => {
                 span.end(spansData.lastListenerEndHrTime)
-              })
+              }, 100)
             }
             return result;
           }
+
+          if (event instanceof UIEvent && event.isTrusted) {
+            // if there is no event span, we still don't want to attach this operator to the previous span,
+            // because it's a user interaction event
+            return api.context.with(api.ROOT_CONTEXT, () => plugin._invokeListener(listener, this, args));
+          }
+
           return plugin._invokeListener(listener, this, args);
         };
         if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
@@ -329,9 +338,9 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
     const plugin = this;
     return (original: any) => {
       return function patchHistoryMethod(this: History, ...args: unknown[]) {
-        const url = `${location.pathname}${location.hash}${location.search}`;
+        const url = getCurrentLocation();
         const result = original.apply(this, args);
-        const urlAfter = `${location.pathname}${location.hash}${location.search}`;
+        const urlAfter = getCurrentLocation();
         if (url !== urlAfter) {
           plugin._updateInteractionName(urlAfter);
         }
@@ -376,10 +385,9 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
 
     const that = this;
 
-    this.__hashChangeHandler = (event: Event) => {
-      const hashChangeEvent = event as HashChangeEvent;
+    this.__hashChangeHandler = () => {
       if (that.lastCreatedSpan && typeof that.lastCreatedSpan.updateName === 'function') {
-        that.lastCreatedSpan.updateName(`${EVENT_NAVIGATION_NAME} ${hashChangeEvent.newURL}`);
+        that.lastCreatedSpan.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
       }
     };
 
