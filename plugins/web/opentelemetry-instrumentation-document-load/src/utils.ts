@@ -73,6 +73,8 @@ const performancePaintNames: Record<string, EventNames> = {
   'first-paint': EventNames.FIRST_PAINT,
 };
 
+const vitalsMetricAsAttributes = new Set([EventNames.CUMULATIVE_LAYOUT_SHIFT])
+
 export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) => {
   const metrics: Partial<Record<EventNames, number>> = {}
   const missedMetrics: Set<Metric['name']> = new Set(['FCP', 'FID', 'TTFB'])
@@ -90,7 +92,7 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
     if (!spanIsEnded) {
       spanIsEnded = true;
       Object.entries(metrics).forEach(([metric, value]) => {
-        span.addEvent(metric, value);
+        span[vitalsMetricAsAttributes.has(metric as EventNames) ? 'setAttribute' : 'addEvent'](metric, value);
       })
       callback();
     }
