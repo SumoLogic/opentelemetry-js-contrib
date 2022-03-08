@@ -31,6 +31,7 @@ import {
 import { VERSION } from './version';
 
 const EVENT_NAVIGATION_NAME = 'Navigation:';
+const NEW_LOCATION_HREF = 'new.location.href';
 const DEFAULT_EVENT_NAMES: EventName[] = ['click'];
 
 function defaultShouldPreventSpanCreation() {
@@ -343,7 +344,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
         const result = original.apply(this, args);
         const urlAfter = getCurrentLocation();
         if (url !== urlAfter) {
-          plugin._updateInteractionName(urlAfter);
+          plugin._updateSpanAsNavigation(api.trace.getSpan(api.context.active()));
         }
         return result;
       };
@@ -365,10 +366,10 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * Updates interaction span name
    * @param url
    */
-  _updateInteractionName(url: string) {
-    const span: api.Span | undefined = api.trace.getSpan(api.context.active());
+  _updateSpanAsNavigation(span?: api.Span) {
     if (span && typeof span.updateName === 'function') {
-      span.updateName(`${EVENT_NAVIGATION_NAME} ${url}`);
+      span.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
+      span.setAttribute(NEW_LOCATION_HREF, location.href);
     }
   }
 
@@ -384,12 +385,8 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       this.version,
     );
 
-    const that = this;
-
     this.__hashChangeHandler = () => {
-      if (that.lastCreatedSpan && typeof that.lastCreatedSpan.updateName === 'function') {
-        that.lastCreatedSpan.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
-      }
+      this._updateSpanAsNavigation(this.lastCreatedSpan);
     };
 
     window.addEventListener('hashchange', this.__hashChangeHandler);
