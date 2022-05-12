@@ -67,6 +67,7 @@ export class LongTaskInstrumentation extends InstrumentationBase {
       }
     }
     span.setAttribute('component', this.component);
+    span.setAttribute('http.url', location.href);
     span.setAttribute('longtask.name', entry.name);
     span.setAttribute('longtask.entry_type', entry.entryType);
     span.setAttribute('longtask.duration', entry.duration);
