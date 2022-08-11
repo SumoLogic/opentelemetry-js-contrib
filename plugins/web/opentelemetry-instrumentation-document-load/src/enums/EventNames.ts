@@ -17,5 +17,4 @@
 export enum EventNames {
   FIRST_PAINT = 'firstPaint',
   FIRST_CONTENTFUL_PAINT = 'firstContentfulPaint',
-  LARGEST_CONTENTFUL_PAINT = 'largestContentfulPaint',
 }
