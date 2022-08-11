@@ -86,6 +86,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   private _createSpan(
     element: EventTarget | null | undefined,
     eventName: EventName,
+    parentSpan?: api.Span | undefined
   ): api.Span | undefined {
     if (!(element instanceof HTMLElement)) {
       return undefined;
@@ -113,7 +114,9 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
             [AttributeNames.HTTP_USER_AGENT]: navigator.userAgent,
           },
         },
-        api.ROOT_CONTEXT
+        parentSpan
+          ? api.trace.setSpan(api.context.active(), parentSpan)
+          : undefined
       );
 
       this.lastCreatedSpan = span;
