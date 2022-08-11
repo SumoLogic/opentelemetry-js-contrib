@@ -40,8 +40,6 @@ function defaultShouldPreventSpanCreation() {
   return false;
 }
 
-const queueMicrotask = self.queueMicrotask || ((callback) => { Promise.resolve().then(callback) })
-
 /**
  * This class represents a UserInteraction plugin for auto instrumentation.
  * If zone.js is available then it patches the zone otherwise it patches
@@ -293,33 +291,32 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
         const once = typeof useCapture === 'object' && useCapture.once;
         const addEventListenerContext = this
         const patchedListener = function (this: HTMLElement, ...args: any[]) {
+          let parentSpan: api.Span | undefined;
           const event: Event | undefined = args[0];
           const target = event?.target;
+          if (event) {
+            parentSpan = plugin._eventsSpanMap.get(event);
+          }
           if (once) {
             plugin.removePatchedListener(addEventListenerContext, type, listener);
           }
-          // use previously created span for this event in order to create one span per event
-          const eventSpan = event && plugin._eventsSpanMap.get(event)
-          const span = eventSpan || plugin._createSpan(target, type);
+          const span = plugin._createSpan(target, type, parentSpan);
           if (span) {
-            const spansData = plugin._spansData.get(span)!
-            if (event && !eventSpan) {
+            if (event) {
               plugin._eventsSpanMap.set(event, span);
-              // end span when all other listeners ends
-              setTimeout(() => {
-                span.end(spansData.lastListenerEndHrTime)
-              })
             }
             return api.context.with(
               api.trace.setSpan(api.context.active(), span),
               () => {
                 const result = plugin._invokeListener(listener, this, args);
-                spansData.lastListenerEndHrTime = hrTime()
+                // no zone so end span immediately
+                span.end();
                 return result;
               }
             );
+          } else {
+            return plugin._invokeListener(listener, this, args);
           }
-          return plugin._invokeListener(listener, this, args);
         };
         if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
           return original.call(this, type, patchedListener, useCapture);
