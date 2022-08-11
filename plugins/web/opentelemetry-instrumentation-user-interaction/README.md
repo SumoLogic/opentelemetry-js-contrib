@@ -1,17 +1,16 @@
 # OpenTelemetry UserInteraction Instrumentation for web
 
 [![NPM Published Version][npm-img]][npm-url]
-[![dependencies][dependencies-image]][dependencies-url]
-[![devDependencies][devDependencies-image]][devDependencies-url]
 [![Apache License][license-image]][license-image]
 
-This module provides auto instrumentation of user interaction for web.
-This module can work either with [zone-js] or without it.
-With [zone-js] and ZoneContextManager it will fully support the async operations.
-If you use Angular you already have the [zone-js]. It will be the same if you use [@opentelemetry/context-zone].
-Without [zone-js] it will still work but with limited support.
+This module provides automatic instrumentation for *user interactions* for Web applications, which may be loaded using the [`@opentelemetry/sdk-trace-web`](https://www.npmjs.com/package/@opentelemetry/sdk-trace-web) package.
+
+If total installation size is not constrained, it is recommended to use the [`@opentelemetry/auto-instrumentations-web](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-web) bundle with [`@opentelemetry/sdk-trace-web`](https://www.npmjs.com/package/@opentelemetry/sdk-trace-web) for the most seamless instrumentation experience.
 
 Compatible with OpenTelemetry JS API and SDK `1.0+`.
+
+This module can work either with [zone-js] or without it, with [zone-js] and ZoneContextManager it will fully support the async operations. Without [zone-js] it will still work but with limited support.
+If you use Angular or [@opentelemetry/context-zone] you will have [zone-js] included.
 
 ## Installation
 
@@ -103,10 +102,6 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 [discussions-url]: https://github.com/open-telemetry/opentelemetry-js/discussions
 [license-url]: https://github.com/open-telemetry/opentelemetry-js/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[dependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fweb%2Fopentelemetry-instrumentation-user-interaction
-[dependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fweb%2Fopentelemetry-instrumentation-user-interaction
-[devDependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fweb%2Fopentelemetry-instrumentation-user-interaction&type=dev
-[devDependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fweb%2Fopentelemetry-instrumentation-user-interaction&type=dev
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/instrumentation-user-interaction
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Finstrumentation-user-interaction.svg
 [zone-js]: https://www.npmjs.com/package/zone.js

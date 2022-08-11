@@ -48,6 +48,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   readonly component: string = 'document-load';
   readonly version: string = '1';
   moduleName = this.component;
+  protected _config!: InstrumentationConfig;
+  private _enabled = false;
 
   /**
    *
@@ -110,6 +112,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
           entries
         );
         if (fetchSpan) {
+          fetchSpan.setAttribute(SemanticAttributes.HTTP_URL, location.href);
+          fetchSpan.setAttribute(SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
           context.with(trace.setSpan(context.active(), fetchSpan), () => {
             addSpanNetworkEvents(fetchSpan, entries);
             this._endSpan(fetchSpan, PTN.RESPONSE_END, entries);
@@ -122,6 +126,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         SemanticAttributes.HTTP_USER_AGENT,
         navigator.userAgent
       );
+      rootSpan.setAttribute(AttributeNames.PAGE_TITLE, document.title);
 
       this._addResourcesSpans(rootSpan);
 
@@ -139,9 +144,9 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_START, entries);
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_END, entries);
 
-      addSpanPerformancePaintEvents(rootSpan);
-
-      this._endSpan(rootSpan, PTN.LOAD_EVENT_END, entries);
+      addSpanPerformancePaintEvents(rootSpan, () => {
+        this._endSpan(rootSpan, PTN.LOAD_EVENT_END, entries);
+      });
     });
   }
 
@@ -223,7 +228,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    * executes callback {_onDocumentLoaded} when the page is loaded
    */
   private _waitForPageLoad() {
-    if (window.document.readyState === 'complete') {
+    if (window.document.readyState === 'complete' && !this._enabled) {
+      this._enabled = true;
       this._onDocumentLoaded();
     } else {
       this._onDocumentLoaded = this._onDocumentLoaded.bind(this);

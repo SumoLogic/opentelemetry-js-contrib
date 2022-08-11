@@ -16,9 +16,18 @@ jobs:
               --ignore @opentelemetry/instrumentation-aws-sdk
               --ignore @opentelemetry/instrumentation-pino
               --ignore @opentelemetry/instrumentation-tedious
+              --ignore @opentelemetry/instrumentation-amqplib
+              --ignore @opentelemetry/instrumentation-redis-4
+              --ignore @opentelemetry/instrumentation-hapi
           - node: "10"
             lerna-extra-args: >-
+              --ignore @opentelemetry/instrumentation-aws-sdk
               --ignore @opentelemetry/instrumentation-pino
+              --ignore @opentelemetry/instrumentation-redis-4
+              --ignore @opentelemetry/instrumentation-hapi
+          - node: "12"
+            lerna-extra-args: >-
+              --ignore @opentelemetry/instrumentation-redis-4
     runs-on: ubuntu-latest
     services:
       memcached:
@@ -81,6 +90,13 @@ jobs:
         image: bitnami/cassandra:3
         ports:
         - 9042:9042
+      rabbitmq:
+        image: rabbitmq:3
+        ports:
+        - 22221:5672
+        env:
+          RABBITMQ_DEFAULT_USER: username
+          RABBITMQ_DEFAULT_PASS: password
     env:
       RUN_CASSANDRA_TESTS: 1
       RUN_MEMCACHED_TESTS: 1
@@ -89,6 +105,7 @@ jobs:
       RUN_MSSQL_TESTS: 1
       RUN_POSTGRES_TESTS: 1
       RUN_REDIS_TESTS: 1
+      RUN_RABBIT_TESTS: 1
       CASSANDRA_HOST: localhost
       MONGODB_DB: opentelemetry-tests
       MONGODB_HOST: 127.0.0.1
@@ -110,14 +127,14 @@ jobs:
       NPM_CONFIG_UNSAFE_PERM: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
       - name: Cache Dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             node_modules
@@ -144,9 +161,11 @@ jobs:
         run: npx lerna bootstrap --no-ci --hoist --nohoist='zone.js' --nohoist='mocha' --nohoist='ts-mocha'
       - name: Unit tests
         run: npm run test:ci:changed -- ${{ matrix.lerna-extra-args }}
+      - name: Build examples
+        run: npm run compile:examples
       - name: Report Coverage
         if: matrix.node == '14'
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           verbose: true
 
@@ -160,14 +179,14 @@ jobs:
       NPM_CONFIG_UNSAFE_PERM: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
       - name: Cache Dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             node_modules
@@ -192,6 +211,6 @@ jobs:
       - name: Unit tests
         run: npm run test:browser
       - name: Report Coverage
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           verbose: true

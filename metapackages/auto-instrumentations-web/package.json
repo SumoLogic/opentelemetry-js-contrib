@@ -1,10 +1,13 @@
 {
   "name": "@opentelemetry/auto-instrumentations-web",
-  "version": "0.27.2",
+  "version": "0.29.1",
   "description": "Metapackage which bundles opentelemetry node core and contrib instrumentations",
   "author": "OpenTelemetry Authors",
-  "homepage": "https://github.com/open-telemetry/opentelemetry-js-contrib#readme",
+  "homepage": "https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/metapackages/auto-instrumentations-web#readme",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=8.12.0"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -17,52 +20,53 @@
     "compile": "tsc --build tsconfig.json tsconfig.esm.json",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "precompile": "tsc --version && lerna run version --scope @opentelemetry/auto-instrumentations-web --include-dependencies",
+    "precompile": "tsc --version && lerna run version:update --scope @opentelemetry/auto-instrumentations-web --include-dependencies",
     "prewatch": "npm run precompile",
     "prepare": "npm run compile",
     "test:browser": "nyc karma start --single-run",
-    "version": "node ../../scripts/version-update.js",
     "watch": "tsc --build --watch tsconfig.json tsconfig.esm.json"
   },
   "bugs": {
     "url": "https://github.com/open-telemetry/opentelemetry-js-contrib/issues"
   },
   "peerDependencies": {
-    "@opentelemetry/api": "^1.0.2"
+    "@opentelemetry/api": "^1.0.0"
   },
   "devDependencies": {
     "@babel/core": "7.15.0",
-    "@opentelemetry/api": "1.0.2",
+    "@jsdevtools/coverage-istanbul-loader": "3.0.5",
+    "@opentelemetry/api": "^1.0.0",
     "@types/mocha": "8.2.3",
     "@types/node": "16.11.21",
     "@types/sinon": "10.0.2",
     "@types/webpack-env": "1.16.2",
+    "assert": "2.0.0",
     "babel-loader": "8.2.2",
-    "colors": "1.4.0",
     "gts": "3.1.0",
-    "istanbul-instrumenter-loader": "3.0.1",
-    "karma": "6.3.14",
-    "karma-chrome-launcher": "3.1.0",
+    "karma": "6.3.17",
+    "karma-chrome-launcher": "3.1.1",
     "karma-coverage-istanbul-reporter": "3.0.3",
     "karma-mocha": "2.0.1",
-    "karma-spec-reporter": "0.0.32",
-    "karma-webpack": "4.0.2",
+    "karma-spec-reporter": "0.0.33",
+    "karma-webpack": "5.0.0",
     "mocha": "7.2.0",
     "nyc": "15.1.0",
+    "process": "0.11.10",
     "rimraf": "3.0.2",
-    "sinon": "13.0.1",
+    "sinon": "14.0.0",
     "ts-loader": "8.3.0",
-    "ts-mocha": "8.0.0",
+    "ts-mocha": "10.0.0",
     "typescript": "4.3.5",
-    "webpack": "4.46.0",
-    "webpack-cli": "4.7.2",
+    "util": "0.12.4",
+    "webpack": "5.72.0",
+    "webpack-cli": "4.9.2",
     "webpack-merge": "5.8.0"
   },
   "dependencies": {
-    "@opentelemetry/instrumentation": "^0.27.0",
-    "@opentelemetry/instrumentation-document-load": "^0.27.1",
-    "@opentelemetry/instrumentation-fetch": "^0.27.0",
-    "@opentelemetry/instrumentation-user-interaction": "^0.28.1",
-    "@opentelemetry/instrumentation-xml-http-request": "^0.27.0"
+    "@opentelemetry/instrumentation": "^0.29.2",
+    "@opentelemetry/instrumentation-document-load": "^0.29.0",
+    "@opentelemetry/instrumentation-fetch": "^0.29.2",
+    "@opentelemetry/instrumentation-user-interaction": "^0.30.1",
+    "@opentelemetry/instrumentation-xml-http-request": "^0.29.2"
   }
 }

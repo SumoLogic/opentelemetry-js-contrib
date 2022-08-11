@@ -19,8 +19,12 @@ import {
   InstrumentationBase,
   InstrumentationNodeModuleDefinition,
   isWrapped,
+  safeExecuteInTheMiddle,
 } from '@opentelemetry/instrumentation';
-import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
+import {
+  DbSystemValues,
+  SemanticAttributes,
+} from '@opentelemetry/semantic-conventions';
 import type * as mysqlTypes from 'mysql2';
 import { MySQL2InstrumentationConfig } from './types';
 import {
@@ -33,12 +37,9 @@ import { VERSION } from './version';
 
 type formatType = typeof mysqlTypes.format;
 
-export class MySQL2Instrumentation extends InstrumentationBase<
-  typeof mysqlTypes
-> {
-  static readonly COMPONENT = 'mysql';
+export class MySQL2Instrumentation extends InstrumentationBase<any> {
   static readonly COMMON_ATTRIBUTES = {
-    [SemanticAttributes.DB_SYSTEM]: MySQL2Instrumentation.COMPONENT,
+    [SemanticAttributes.DB_SYSTEM]: DbSystemValues.MYSQL,
   };
 
   constructor(config?: MySQL2InstrumentationConfig) {
@@ -47,9 +48,9 @@ export class MySQL2Instrumentation extends InstrumentationBase<
 
   protected init() {
     return [
-      new InstrumentationNodeModuleDefinition<typeof mysqlTypes>(
+      new InstrumentationNodeModuleDefinition<any>(
         'mysql2',
-        ['2.*'],
+        ['>= 1.4.2 < 3.0'],
         (moduleExports: any, moduleVersion) => {
           api.diag.debug(`Patching mysql@${moduleVersion}`);
 
@@ -65,6 +66,15 @@ export class MySQL2Instrumentation extends InstrumentationBase<
             this._patchQuery(moduleExports.format) as any
           );
 
+          if (isWrapped(ConnectionPrototype.execute)) {
+            this._unwrap(ConnectionPrototype, 'execute');
+          }
+          this._wrap(
+            ConnectionPrototype,
+            'execute',
+            this._patchQuery(moduleExports.format) as any
+          );
+
           return moduleExports;
         },
         (moduleExports: any) => {
@@ -72,6 +82,7 @@ export class MySQL2Instrumentation extends InstrumentationBase<
           const ConnectionPrototype: mysqlTypes.Connection =
             moduleExports.Connection.prototype;
           this._unwrap(ConnectionPrototype, 'query');
+          this._unwrap(ConnectionPrototype, 'execute');
         }
       ),
     ];
@@ -80,7 +91,7 @@ export class MySQL2Instrumentation extends InstrumentationBase<
   private _patchQuery(format: formatType) {
     return (originalQuery: Function): Function => {
       const thisPlugin = this;
-      api.diag.debug('MySQL2Instrumentation: patched mysql query');
+      api.diag.debug('MySQL2Instrumentation: patched mysql query/execute');
 
       return function query(
         this: mysqlTypes.Connection,
@@ -107,13 +118,29 @@ export class MySQL2Instrumentation extends InstrumentationBase<
             ),
           },
         });
-        const endSpan = once((err?: any) => {
+        const endSpan = once((err?: any, results?: any) => {
           if (err) {
             span.setStatus({
               code: api.SpanStatusCode.ERROR,
               message: err.message,
             });
+          } else {
+            const config: MySQL2InstrumentationConfig = thisPlugin._config;
+            if (typeof config.responseHook === 'function') {
+              safeExecuteInTheMiddle(
+                () => {
+                  config.responseHook!(span, { queryResults: results });
+                },
+                err => {
+                  if (err) {
+                    thisPlugin._diag.warn('Failed executing responseHook', err);
+                  }
+                },
+                true
+              );
+            }
           }
+
           span.end();
         });
 
@@ -136,8 +163,8 @@ export class MySQL2Instrumentation extends InstrumentationBase<
             .once('error', err => {
               endSpan(err);
             })
-            .once('result', () => {
-              endSpan();
+            .once('result', results => {
+              endSpan(undefined, results);
             });
 
           return streamableQuery;
@@ -169,7 +196,7 @@ export class MySQL2Instrumentation extends InstrumentationBase<
         results?: any,
         fields?: mysqlTypes.FieldPacket[]
       ) {
-        endSpan(err);
+        endSpan(err, results);
         return originalCallback(...arguments);
       };
     };

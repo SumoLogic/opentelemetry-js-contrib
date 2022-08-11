@@ -16,7 +16,23 @@
 
 import { SpanAttributes } from '@opentelemetry/api';
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
-import type { Query, QueryOptions } from 'mysql2';
+
+/*
+  Following types declare an expectation on mysql2 types and define a subset we
+  use in the instrumentation of the types actually defined in mysql2 pacakge
+
+  We need to import them here so that the installing party of the instrumentation
+  doesn't have to absolutely install the mysql2 package as well - specially
+  important for auto-loaders and meta-pacakges.
+*/
+interface QueryOptions {
+  sql: string;
+  values?: any | any[] | { [param: string]: any };
+}
+
+interface Query {
+  sql: string;
+}
 
 interface Config {
   host?: string;
@@ -36,7 +52,11 @@ export function getConnectionAttributes(config: Config): SpanAttributes {
   return {
     [SemanticAttributes.NET_PEER_NAME]: host,
     [SemanticAttributes.NET_PEER_PORT]: port,
-    [SemanticAttributes.NET_PEER_IP]: getJDBCString(host, port, database),
+    [SemanticAttributes.DB_CONNECTION_STRING]: getJDBCString(
+      host,
+      port,
+      database
+    ),
     [SemanticAttributes.DB_NAME]: database,
     [SemanticAttributes.DB_USER]: user,
   };
@@ -99,10 +119,9 @@ export function getDbStatement(
  * @returns SQL statement without variable arguments or SQL verb
  */
 export function getSpanName(query: string | Query | QueryOptions): string {
-  if (typeof query === 'object') {
-    return query.sql;
-  }
-  return query.split(' ')[0];
+  const rawQuery = typeof query === 'object' ? query.sql : query;
+  // Extract the SQL verb
+  return rawQuery?.split(' ')?.[0];
 }
 
 export const once = (fn: Function) => {

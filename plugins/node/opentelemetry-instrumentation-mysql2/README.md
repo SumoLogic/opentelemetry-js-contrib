@@ -1,14 +1,11 @@
 # OpenTelemetry mysql Instrumentation for Node.js
 
 [![NPM Published Version][npm-img]][npm-url]
-[![dependencies][dependencies-image]][dependencies-url]
-[![devDependencies][devDependencies-image]][devDependencies-url]
 [![Apache License][license-image]][license-image]
 
-This module provides automatic instrumentation for [`mysql2`](https://github.com/sidorares/node-mysql2).
+This module provides automatic instrumentation for the [`mysql2`](https://github.com/sidorares/node-mysql2) module, which may be loaded using the [`@opentelemetry/sdk-trace-node`](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/opentelemetry-sdk-trace-node) package and is included in the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle.
 
-For automatic instrumentation see the
-[@opentelemetry/sdk-trace-node](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/opentelemetry-node) package.
+If total installation size is not constrained, it is recommended to use the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle with [@opentelemetry/sdk-node](`https://www.npmjs.com/package/@opentelemetry/sdk-node`) for the most seamless instrumentation experience.
 
 Compatible with OpenTelemetry JS API and SDK `1.0+`.
 
@@ -20,7 +17,7 @@ npm install --save @opentelemetry/instrumentation-mysql2
 
 ## Supported Versions
 
-- `2.x`
+- `>= 1.4.2, < 3.0`
 
 ## Usage
 
@@ -43,6 +40,14 @@ registerInstrumentations({
 })
 ```
 
+### MySQL2 Instrumentation Options
+
+You can set the following instrumentation options:
+
+| Options | Type | Description |
+| ------- | ---- | ----------- |
+| `responseHook` | `MySQL2InstrumentationExecutionResponseHook` (function) | Function for adding custom attributes from db response |
+
 ## Useful links
 
 - For more information on OpenTelemetry, visit: <https://opentelemetry.io/>
@@ -56,9 +61,5 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 [discussions-url]: https://github.com/open-telemetry/opentelemetry-js/discussions
 [license-url]: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[dependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fnode%2Fopentelemetry-instrumentation-mysql2
-[dependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fnode%2Fopentelemetry-instrumentation-mysql2
-[devDependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fnode%2Fopentelemetry-instrumentation-mysql2&type=dev
-[devDependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fnode%2Fopentelemetry-instrumentation-mysql2&type=dev
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/instrumentation-mysql2
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Finstrumentation-mysql2.svg

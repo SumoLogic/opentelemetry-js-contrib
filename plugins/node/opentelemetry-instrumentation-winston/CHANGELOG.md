@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.29.0](https://github.com/open-telemetry/opentelemetry-js-contrib/compare/instrumentation-winston-v0.28.0...instrumentation-winston-v0.29.0) (2022-06-08)
+
+
+### Features
+
+* update core dependencies stable ^1.3.1 experimental ^0.29.2 ([141b155](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/141b155e344980b51264e26b26c117b2113bcef6))
+
+## [0.28.0](https://github.com/open-telemetry/opentelemetry-js-contrib/compare/instrumentation-winston-v0.27.3...instrumentation-winston-v0.28.0) (2022-05-14)
+
+
+### Features
+
+* add supported node versions for all packages ([#973](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/973)) ([baaacbd](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/baaacbdd35ca4baab0afae64647aa8c0380ee4b7))
+* remove colors dependency ([#943](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/943)) ([b21b96c](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/b21b96c1a3a4f871370f970d6b2825f00e1fe595)), closes [#826](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/826)
+* use Otel SDK 1.2/0.28 ([#984](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/984)) ([098c2ed](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/098c2ed6f9c5ab7bd865685018c0777245aab3b7))
+
+### [0.27.3](https://github.com/open-telemetry/opentelemetry-js-contrib/compare/instrumentation-winston-v0.27.2...instrumentation-winston-v0.27.3) (2022-03-14)
+
+
+### Bug Fixes
+
+* avoid leaking winston types ([#932](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/932)) ([31c4886](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/31c4886e168c24496a2c60721eb0d9e3b8732d27))
+
+### [0.27.2](https://github.com/open-telemetry/opentelemetry-js-contrib/compare/instrumentation-winston-v0.27.1...instrumentation-winston-v0.27.2) (2022-03-02)
+
+
+### Bug Fixes
+
+* **documentation:** mixed up winston readme for hook ([#910](https://github.com/open-telemetry/opentelemetry-js-contrib/issues/910)) ([0a557e8](https://github.com/open-telemetry/opentelemetry-js-contrib/commit/0a557e86c0d70dc6ab7af9736b1746f89c5fc8bf))
+
 ### [0.27.1](https://www.github.com/open-telemetry/opentelemetry-js-contrib/compare/instrumentation-winston-v0.27.0...instrumentation-winston-v0.27.1) (2022-01-24)
 
 

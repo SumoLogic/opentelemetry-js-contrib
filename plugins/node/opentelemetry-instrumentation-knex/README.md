@@ -1,14 +1,11 @@
 # OpenTelemetry Knex Instrumentation for Node.js
 
 [![NPM Published Version][npm-img]][npm-url]
-[![dependencies][dependencies-image]][dependencies-url]
-[![devDependencies][devDependencies-image]][devDependencies-url]
 [![Apache License][license-image]][license-image]
 
-This module provides automatic instrumentation for [`knex`](https://github.com/knex/node-knex) and allows the user to automatically collect trace data and export them to their backend of choice.
+This module provides automatic instrumentation for the [`knex`](https://github.com/knex/knex) module, which may be loaded using the [`@opentelemetry/sdk-trace-node`](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/opentelemetry-sdk-trace-node) package and is included in the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle. This module allows the user to automatically collect trace data and export them to their backend of choice.
 
-For automatic instrumentation see the
-[@opentelemetry/sdk-trace-node](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/opentelemetry-node) package.
+If total installation size is not constrained, it is recommended to use the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle with [@opentelemetry/sdk-node](`https://www.npmjs.com/package/@opentelemetry/sdk-node`) for the most seamless instrumentation experience.
 
 Compatible with OpenTelemetry JS API and SDK `1.0+`.
 
@@ -65,9 +62,5 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 [discussions-url]: https://github.com/open-telemetry/opentelemetry-js/discussions
 [license-url]: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[dependencies-image]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib/status.svg?path=packages/opentelemetry-instrumentation-knex
-[dependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=packages%2Fopentelemetry-instrumentation-knex
-[devDependencies-image]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib/dev-status.svg?path=packages/opentelemetry-instrumentation-knex
-[devDependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=packages%2Fopentelemetry-instrumentation-knex&type=dev
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/instrumentation-knex
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Finstrumentation-knex.svg

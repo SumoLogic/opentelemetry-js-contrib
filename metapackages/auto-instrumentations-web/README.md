@@ -1,8 +1,6 @@
 # OpenTelemetry Meta Packages for Web
 
 [![NPM Published Version][npm-img]][npm-url]
-[![dependencies][dependencies-image]][dependencies-url]
-[![devDependencies][devDependencies-image]][devDependencies-url]
 [![Apache License][license-image]][license-url]
 
 Compatible with OpenTelemetry JS API and SDK `1.0+`.
@@ -48,6 +46,13 @@ registerInstrumentations({
 
 ```
 
+## Supported instrumentations
+
+- [@opentelemetry/instrumentation-document-load](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/web/opentelemetry-instrumentation-document-load)
+- [@opentelemetry/instrumentation-fetch](https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-instrumentation-fetch)
+- [@opentelemetry/instrumentation-user-interaction](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/web/opentelemetry-instrumentation-user-interaction)
+- [@opentelemetry/instrumentation-xml-http-request](https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-instrumentation-xml-http-request)
+
 ## Useful links
 
 - For more information on OpenTelemetry, visit: <https://opentelemetry.io/>
@@ -59,9 +64,5 @@ APACHE 2.0 - See [LICENSE][license-url] for more information.
 
 [license-url]: https://github.com/open-telemetry/opentelemetry-js-contrib/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[dependencies-image]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib.svg?path=packages%2Fauto-instrumentations-web
-[dependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=packages%2Fauto-instrumentations-web
-[devDependencies-image]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib.svg?path=packages%2Fauto-instrumentations-web&type=dev
-[devDependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=packages%2Fauto-instrumentations-web&type=dev
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-web
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Fauto-instrumentations-web.svg

@@ -24,7 +24,11 @@ const instrumentation = registerInstrumentationTesting(
 import * as AWS from 'aws-sdk';
 import { AWSError } from 'aws-sdk';
 
-import { SemanticAttributes } from '@opentelemetry/semantic-conventions';
+import {
+  MessagingDestinationKindValues,
+  MessagingOperationValues,
+  SemanticAttributes,
+} from '@opentelemetry/semantic-conventions';
 import {
   context,
   SpanKind,
@@ -38,11 +42,13 @@ import { Message } from 'aws-sdk/clients/sqs';
 import * as expect from 'expect';
 import * as sinon from 'sinon';
 import * as messageAttributes from '../src/services/MessageAttributes';
+import { AttributeNames } from '../src/enums';
 
 const responseMockSuccess = {
   requestId: '0000000000000',
   error: null,
-};
+  httpResponse: { statusCode: 200 },
+} as AWS.Response<any, any>;
 
 const extractContextSpy = sinon.spy(
   messageAttributes,
@@ -171,12 +177,16 @@ describe('SQS', () => {
       numChildPerProcessSpan: number
     ) => {
       const awsReceiveSpan = spans.filter(
-        s => s.attributes[SemanticAttributes.MESSAGING_OPERATION] === 'receive'
+        s =>
+          s.attributes[SemanticAttributes.MESSAGING_OPERATION] ===
+          MessagingOperationValues.RECEIVE
       );
       expect(awsReceiveSpan.length).toBe(1);
 
       const processSpans = spans.filter(
-        s => s.attributes[SemanticAttributes.MESSAGING_OPERATION] === 'process'
+        s =>
+          s.attributes[SemanticAttributes.MESSAGING_OPERATION] ===
+          MessagingOperationValues.PROCESS
       );
       expect(processSpans.length).toBe(2);
       expect(processSpans[0].parentSpanId).toStrictEqual(
@@ -354,6 +364,49 @@ describe('SQS', () => {
   });
 
   describe('hooks', () => {
+    it('sqsResponseHook for sendMessage should add messaging attributes', async () => {
+      const region = 'us-east-1';
+      const sqs = new AWS.SQS();
+      sqs.config.update({ region });
+
+      const QueueName = 'unittest';
+      const params = {
+        QueueUrl: `queue/url/for/${QueueName}`,
+        MessageBody: 'payload example from v2 without batch',
+      };
+
+      const response = await sqs.sendMessage(params).promise();
+
+      expect(getTestSpans().length).toBe(1);
+      const [span] = getTestSpans();
+
+      // make sure we have the general aws attributes:
+      expect(span.attributes[SemanticAttributes.RPC_SYSTEM]).toEqual('aws-api');
+      expect(span.attributes[SemanticAttributes.RPC_METHOD]).toEqual(
+        'SendMessage'
+      );
+      expect(span.attributes[SemanticAttributes.RPC_SERVICE]).toEqual('SQS');
+      expect(span.attributes[AttributeNames.AWS_REGION]).toEqual(region);
+
+      // custom messaging attributes
+      expect(span.attributes[SemanticAttributes.MESSAGING_SYSTEM]).toEqual(
+        'aws.sqs'
+      );
+      expect(
+        span.attributes[SemanticAttributes.MESSAGING_DESTINATION_KIND]
+      ).toEqual(MessagingDestinationKindValues.QUEUE);
+      expect(span.attributes[SemanticAttributes.MESSAGING_DESTINATION]).toEqual(
+        QueueName
+      );
+      expect(span.attributes[SemanticAttributes.MESSAGING_URL]).toEqual(
+        params.QueueUrl
+      );
+      expect(span.attributes[SemanticAttributes.MESSAGING_MESSAGE_ID]).toEqual(
+        response.MessageId
+      );
+      expect(span.attributes[SemanticAttributes.HTTP_STATUS_CODE]).toEqual(200);
+    });
+
     it('sqsProcessHook called and add message attribute to span', async () => {
       const config = {
         sqsProcessHook: (
@@ -380,7 +433,9 @@ describe('SQS', () => {
       );
 
       const processSpans = getTestSpans().filter(
-        s => s.attributes[SemanticAttributes.MESSAGING_OPERATION] === 'process'
+        s =>
+          s.attributes[SemanticAttributes.MESSAGING_OPERATION] ===
+          MessagingOperationValues.PROCESS
       );
       expect(processSpans.length).toBe(2);
       expect(
@@ -402,7 +457,9 @@ describe('SQS', () => {
         message => 'some mapping to create child process spans'
       );
       const processSpans = getTestSpans().filter(
-        s => s.attributes[SemanticAttributes.MESSAGING_OPERATION] === 'process'
+        s =>
+          s.attributes[SemanticAttributes.MESSAGING_OPERATION] ===
+          MessagingOperationValues.PROCESS
       );
       expect(processSpans.length).toBe(2);
     });
@@ -429,7 +486,9 @@ describe('SQS', () => {
       );
 
       const processSpans = getTestSpans().filter(
-        s => s.attributes[SemanticAttributes.MESSAGING_OPERATION] === 'process'
+        s =>
+          s.attributes[SemanticAttributes.MESSAGING_OPERATION] ===
+          MessagingOperationValues.PROCESS
       );
       expect(processSpans.length).toBe(2);
       expect(processSpans[0].status.code).toStrictEqual(SpanStatusCode.UNSET);

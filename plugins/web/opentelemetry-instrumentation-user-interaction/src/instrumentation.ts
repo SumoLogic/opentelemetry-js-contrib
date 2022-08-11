@@ -21,36 +21,33 @@ import { hrTime } from '@opentelemetry/core';
 import { getElementXPath } from '@opentelemetry/sdk-trace-web';
 import { AttributeNames } from './enums/AttributeNames';
 import {
-  AsyncTask,
   EventName,
-  RunTaskFunction,
   ShouldPreventSpanCreation,
   SpanData,
   UserInteractionInstrumentationConfig,
-  WindowWithZone,
-  ZoneTypeWithPrototype,
 } from './types';
 import { VERSION } from './version';
 
-const ZONE_CONTEXT_KEY = 'OT_ZONE_CONTEXT';
 const EVENT_NAVIGATION_NAME = 'Navigation:';
+const NEW_LOCATION_HREF = 'new.location.href';
 const DEFAULT_EVENT_NAMES: EventName[] = ['click'];
 
 function defaultShouldPreventSpanCreation() {
   return false;
 }
 
+const getCurrentLocation = () => `${location.pathname}${location.search}${location.hash}`;
+
 /**
  * This class represents a UserInteraction plugin for auto instrumentation.
- * If zone.js is available then it patches the zone otherwise it patches
- * addEventListener of HTMLElement
+ * It patches addEventListener of HTMLElement.
  */
 export class UserInteractionInstrumentation extends InstrumentationBase<unknown> {
   readonly component: string = 'user-interaction';
   readonly version = VERSION;
   moduleName = this.component;
   private _spansData = new WeakMap<api.Span, SpanData>();
-  private _zonePatched?: boolean;
+  private _isEnabled = false
   // for addEventListener/removeEventListener state
   private _wrappedListeners = new WeakMap<
     Function | EventListenerObject,
@@ -63,6 +60,8 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   >();
   private _eventNames: Set<EventName>;
   private _shouldPreventSpanCreation: ShouldPreventSpanCreation;
+  private lastCreatedSpan: api.Span;
+  private __hashChangeHandler: (event: Event) => void;
 
   constructor(config?: UserInteractionInstrumentationConfig) {
     super('@opentelemetry/instrumentation-user-interaction', VERSION, config);
@@ -74,28 +73,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   init() {}
-
-  /**
-   * This will check if last task was timeout and will save the time to
-   * fix the user interaction when nothing happens
-   * This timeout comes from xhr plugin which is needed to collect information
-   * about last xhr main request from observer
-   * @param task
-   * @param span
-   */
-  private _checkForTimeout(task: AsyncTask, span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      if (task.source === 'setTimeout') {
-        spanData.hrTimeLastTimeout = hrTime();
-      } else if (
-        task.source !== 'Promise.then' &&
-        task.source !== 'setTimeout'
-      ) {
-        spanData.hrTimeLastTimeout = undefined;
-      }
-    }
-  }
 
   /**
    * Controls whether or not to create a span, based on the event type.
@@ -112,7 +89,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   private _createSpan(
     element: EventTarget | null | undefined,
     eventName: EventName,
-    parentSpan?: api.Span | undefined
   ): api.Span | undefined {
     if (!(element instanceof HTMLElement)) {
       return undefined;
@@ -140,10 +116,10 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
             [AttributeNames.HTTP_USER_AGENT]: navigator.userAgent,
           },
         },
-        parentSpan
-          ? api.trace.setSpan(api.context.active(), parentSpan)
-          : undefined
+        api.ROOT_CONTEXT
       );
+
+      this.lastCreatedSpan = span;
 
       if (this._shouldPreventSpanCreation(eventName, element, span) === true) {
         return undefined;
@@ -161,47 +137,7 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   }
 
   /**
-   * Decrement number of tasks that left in zone,
-   * This is needed to be able to end span when no more tasks left
-   * @param span
-   */
-  private _decrementTask(span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      spanData.taskCount--;
-      if (spanData.taskCount === 0) {
-        this._tryToEndSpan(span, spanData.hrTimeLastTimeout);
-      }
-    }
-  }
-
-  /**
-   * Return the current span
-   * @param zone
-   * @private
-   */
-  private _getCurrentSpan(zone: Zone): api.Span | undefined {
-    const context: api.Context | undefined = zone.get(ZONE_CONTEXT_KEY);
-    if (context) {
-      return api.trace.getSpan(context);
-    }
-    return context;
-  }
-
-  /**
-   * Increment number of tasks that are run within the same zone.
-   *     This is needed to be able to end span when no more tasks left
-   * @param span
-   */
-  private _incrementTask(span: api.Span) {
-    const spanData = this._spansData.get(span);
-    if (spanData) {
-      spanData.taskCount++;
-    }
-  }
-
-  /**
-   * Returns true iff we should use the patched callback; false if it's already been patched
+   * Returns true if we should use the patched callback; false if it's already been patched
    */
   private addPatchedListener(
     on: HTMLElement,
@@ -271,7 +207,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   /**
    * This patches the addEventListener of HTMLElement to be able to
    * auto instrument the click events
-   * This is done when zone is not available
    */
   private _patchAddEventListener() {
     const plugin = this;
@@ -287,34 +222,49 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
           return original.call(this, type, listener, useCapture);
         }
 
-        const once = typeof useCapture === 'object' && useCapture.once;
+        // filter out null (typeof null === 'object')
+        const once =
+          useCapture && typeof useCapture === 'object' && useCapture.once;
+        const addEventListenerContext = this
         const patchedListener = function (this: HTMLElement, ...args: any[]) {
-          let parentSpan: api.Span | undefined;
           const event: Event | undefined = args[0];
           const target = event?.target;
-          if (event) {
-            parentSpan = plugin._eventsSpanMap.get(event);
-          }
           if (once) {
-            plugin.removePatchedListener(this, type, listener);
+            plugin.removePatchedListener(addEventListenerContext, type, listener);
           }
-          const span = plugin._createSpan(target, type, parentSpan);
+          // use previously created span for this event in order to create one span per event
+          const eventSpan = event && plugin._eventsSpanMap.get(event)
+          const span = eventSpan || plugin._createSpan(target, type);
           if (span) {
-            if (event) {
+            if (event && !eventSpan) {
               plugin._eventsSpanMap.set(event, span);
             }
-            return api.context.with(
+
+            const spansData = plugin._spansData.get(span)!
+            const result = api.context.with(
               api.trace.setSpan(api.context.active(), span),
               () => {
                 const result = plugin._invokeListener(listener, this, args);
-                // no zone so end span immediately
-                span.end();
+                spansData.lastListenerEndHrTime = hrTime()
                 return result;
               }
             );
-          } else {
-            return plugin._invokeListener(listener, this, args);
+            if (event && !eventSpan) {
+              // end span when all other listeners end and wait 100ms for possible navigation change
+              setTimeout(() => {
+                span.end(spansData.lastListenerEndHrTime)
+              }, 100)
+            }
+            return result;
           }
+
+          if (event instanceof UIEvent && event.isTrusted) {
+            // if there is no event span, we still don't want to attach this operator to the previous span,
+            // because it's a user interaction event
+            return api.context.with(api.ROOT_CONTEXT, () => plugin._invokeListener(listener, this, args));
+          }
+
+          return plugin._invokeListener(listener, this, args);
         };
         if (plugin.addPatchedListener(this, type, listener, patchedListener)) {
           return original.call(this, type, patchedListener, useCapture);
@@ -326,7 +276,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   /**
    * This patches the removeEventListener of HTMLElement to handle the fact that
    * we patched the original callbacks
-   * This is done when zone is not available
    */
   private _patchRemoveEventListener() {
     const plugin = this;
@@ -389,11 +338,11 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
     const plugin = this;
     return (original: any) => {
       return function patchHistoryMethod(this: History, ...args: unknown[]) {
-        const url = `${location.pathname}${location.hash}${location.search}`;
+        const url = getCurrentLocation();
         const result = original.apply(this, args);
-        const urlAfter = `${location.pathname}${location.hash}${location.search}`;
+        const urlAfter = getCurrentLocation();
         if (url !== urlAfter) {
-          plugin._updateInteractionName(urlAfter);
+          plugin._updateSpanAsNavigation(api.trace.getSpan(api.context.active()));
         }
         return result;
       };
@@ -415,154 +364,10 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * Updates interaction span name
    * @param url
    */
-  _updateInteractionName(url: string) {
-    const span: api.Span | undefined = api.trace.getSpan(api.context.active());
+  _updateSpanAsNavigation(span?: api.Span) {
     if (span && typeof span.updateName === 'function') {
-      span.updateName(`${EVENT_NAVIGATION_NAME} ${url}`);
-    }
-  }
-
-  /**
-   * Patches zone cancel task - this is done to be able to correctly
-   * decrement the number of remaining tasks
-   */
-  private _patchZoneCancelTask() {
-    const plugin = this;
-    return (original: any) => {
-      return function patchCancelTask<T extends Task>(
-        this: Zone,
-        task: AsyncTask
-      ) {
-        const currentZone = Zone.current;
-        const currentSpan = plugin._getCurrentSpan(currentZone);
-        if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-          plugin._decrementTask(currentSpan);
-        }
-        return original.call(this, task) as T;
-      };
-    };
-  }
-
-  /**
-   * Patches zone schedule task - this is done to be able to correctly
-   * increment the number of tasks running within current zone but also to
-   * save time in case of timeout running from xhr plugin when waiting for
-   * main request from PerformanceResourceTiming
-   */
-  private _patchZoneScheduleTask() {
-    const plugin = this;
-    return (original: any) => {
-      return function patchScheduleTask<T extends Task>(
-        this: Zone,
-        task: AsyncTask
-      ) {
-        const currentZone = Zone.current;
-        const currentSpan = plugin._getCurrentSpan(currentZone);
-        if (currentSpan && plugin._shouldCountTask(task, currentZone)) {
-          plugin._incrementTask(currentSpan);
-          plugin._checkForTimeout(task, currentSpan);
-        }
-        return original.call(this, task) as T;
-      };
-    };
-  }
-
-  /**
-   * Patches zone run task - this is done to be able to create a span when
-   * user interaction starts
-   * @private
-   */
-  private _patchZoneRunTask() {
-    const plugin = this;
-    return (original: RunTaskFunction): RunTaskFunction => {
-      return function patchRunTask(
-        this: Zone,
-        task: AsyncTask,
-        applyThis?: any,
-        applyArgs?: any
-      ): Zone {
-        const event =
-          Array.isArray(applyArgs) && applyArgs[0] instanceof Event
-            ? applyArgs[0]
-            : undefined;
-        const target = event?.target;
-        let span: api.Span | undefined;
-        const activeZone = this;
-        if (target) {
-          span = plugin._createSpan(target, task.eventName);
-          if (span) {
-            plugin._incrementTask(span);
-            return activeZone.run(() => {
-              try {
-                return api.context.with(
-                  api.trace.setSpan(api.context.active(), span!),
-                  () => {
-                    const currentZone = Zone.current;
-                    task._zone = currentZone;
-                    return original.call(
-                      currentZone,
-                      task,
-                      applyThis,
-                      applyArgs
-                    );
-                  }
-                );
-              } finally {
-                plugin._decrementTask(span as api.Span);
-              }
-            });
-          }
-        } else {
-          span = plugin._getCurrentSpan(activeZone);
-        }
-
-        try {
-          return original.call(activeZone, task, applyThis, applyArgs);
-        } finally {
-          if (span && plugin._shouldCountTask(task, activeZone)) {
-            plugin._decrementTask(span);
-          }
-        }
-      };
-    };
-  }
-
-  /**
-   * Decides if task should be counted.
-   * @param task
-   * @param currentZone
-   * @private
-   */
-  private _shouldCountTask(task: AsyncTask, currentZone: Zone): boolean {
-    if (task._zone) {
-      currentZone = task._zone;
-    }
-    if (!currentZone || !task.data || task.data.isPeriodic) {
-      return false;
-    }
-    const currentSpan = this._getCurrentSpan(currentZone);
-    if (!currentSpan) {
-      return false;
-    }
-    if (!this._spansData.get(currentSpan)) {
-      return false;
-    }
-    return task.type === 'macroTask' || task.type === 'microTask';
-  }
-
-  /**
-   * Will try to end span when such span still exists.
-   * @param span
-   * @param endTime
-   * @private
-   */
-  private _tryToEndSpan(span: api.Span, endTime?: api.HrTime) {
-    if (span) {
-      const spanData = this._spansData.get(span);
-      if (spanData) {
-        span.end(endTime);
-        this._spansData.delete(span);
-      }
+      span.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
+      span.setAttribute(NEW_LOCATION_HREF, location.href);
     }
   }
 
@@ -570,68 +375,29 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * implements enable function
    */
   override enable() {
-    const ZoneWithPrototype = this.getZoneWithPrototype();
+    if (this._isEnabled) return
+    this._isEnabled = true
     api.diag.debug(
       'applying patch to',
       this.moduleName,
       this.version,
-      'zone:',
-      !!ZoneWithPrototype
     );
-    if (ZoneWithPrototype) {
-      if (isWrapped(ZoneWithPrototype.prototype.runTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'runTask');
-        api.diag.debug('removing previous patch from method runTask');
-      }
-      if (isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
-        api.diag.debug('removing previous patch from method scheduleTask');
-      }
-      if (isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-        api.diag.debug('removing previous patch from method cancelTask');
-      }
 
-      this._zonePatched = true;
+    this.__hashChangeHandler = () => {
+      this._updateSpanAsNavigation(this.lastCreatedSpan);
+    };
+
+    window.addEventListener('hashchange', this.__hashChangeHandler);
+
+    const targets = this._getPatchableEventTargets();
+    targets.forEach(target => {
+      this._wrap(target, 'addEventListener', this._patchAddEventListener());
       this._wrap(
-        ZoneWithPrototype.prototype,
-        'runTask',
-        this._patchZoneRunTask()
+        target,
+        'removeEventListener',
+        this._patchRemoveEventListener()
       );
-      this._wrap(
-        ZoneWithPrototype.prototype,
-        'scheduleTask',
-        this._patchZoneScheduleTask()
-      );
-      this._wrap(
-        ZoneWithPrototype.prototype,
-        'cancelTask',
-        this._patchZoneCancelTask()
-      );
-    } else {
-      this._zonePatched = false;
-      const targets = this._getPatchableEventTargets();
-      targets.forEach(target => {
-        if (isWrapped(target.addEventListener)) {
-          this._unwrap(target, 'addEventListener');
-          api.diag.debug(
-            'removing previous patch from method addEventListener'
-          );
-        }
-        if (isWrapped(target.removeEventListener)) {
-          this._unwrap(target, 'removeEventListener');
-          api.diag.debug(
-            'removing previous patch from method removeEventListener'
-          );
-        }
-        this._wrap(target, 'addEventListener', this._patchAddEventListener());
-        this._wrap(
-          target,
-          'removeEventListener',
-          this._patchRemoveEventListener()
-        );
-      });
-    }
+    });
 
     this._patchHistoryApi();
   }
@@ -640,43 +406,23 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
    * implements unpatch function
    */
   override disable() {
-    const ZoneWithPrototype = this.getZoneWithPrototype();
+    if (!this._isEnabled) return
+    this._isEnabled = false
     api.diag.debug(
       'removing patch from',
       this.moduleName,
       this.version,
-      'zone:',
-      !!ZoneWithPrototype
     );
-    if (ZoneWithPrototype && this._zonePatched) {
-      if (isWrapped(ZoneWithPrototype.prototype.runTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'runTask');
+    window.removeEventListener('hashchange', this.__hashChangeHandler);
+    const targets = this._getPatchableEventTargets();
+    targets.forEach(target => {
+      if (isWrapped(target.addEventListener)) {
+        this._unwrap(target, 'addEventListener');
       }
-      if (isWrapped(ZoneWithPrototype.prototype.scheduleTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'scheduleTask');
+      if (isWrapped(target.removeEventListener)) {
+        this._unwrap(target, 'removeEventListener');
       }
-      if (isWrapped(ZoneWithPrototype.prototype.cancelTask)) {
-        this._unwrap(ZoneWithPrototype.prototype, 'cancelTask');
-      }
-    } else {
-      const targets = this._getPatchableEventTargets();
-      targets.forEach(target => {
-        if (isWrapped(target.addEventListener)) {
-          this._unwrap(target, 'addEventListener');
-        }
-        if (isWrapped(target.removeEventListener)) {
-          this._unwrap(target, 'removeEventListener');
-        }
-      });
-    }
+    });
     this._unpatchHistoryApi();
-  }
-
-  /**
-   * returns Zone
-   */
-  getZoneWithPrototype(): ZoneTypeWithPrototype | undefined {
-    const _window: WindowWithZone = window as unknown as WindowWithZone;
-    return _window.Zone;
   }
 }

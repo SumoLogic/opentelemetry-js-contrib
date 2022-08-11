@@ -25,6 +25,7 @@ describe('utils', () => {
     it('should load default instrumentations', () => {
       const instrumentations = getNodeAutoInstrumentations();
       const expectedInstrumentations = [
+        '@opentelemetry/instrumentation-amqplib',
         '@opentelemetry/instrumentation-aws-lambda',
         '@opentelemetry/instrumentation-aws-sdk',
         '@opentelemetry/instrumentation-bunyan',
@@ -41,6 +42,7 @@ describe('utils', () => {
         '@opentelemetry/instrumentation-ioredis',
         '@opentelemetry/instrumentation-knex',
         '@opentelemetry/instrumentation-koa',
+        '@opentelemetry/instrumentation-lru-memoizer',
         '@opentelemetry/instrumentation-memcached',
         '@opentelemetry/instrumentation-mongodb',
         '@opentelemetry/instrumentation-mysql2',
@@ -50,10 +52,11 @@ describe('utils', () => {
         '@opentelemetry/instrumentation-pg',
         '@opentelemetry/instrumentation-pino',
         '@opentelemetry/instrumentation-redis',
+        '@opentelemetry/instrumentation-redis-4',
         '@opentelemetry/instrumentation-restify',
         '@opentelemetry/instrumentation-winston',
       ];
-      assert.strictEqual(instrumentations.length, 27);
+      assert.strictEqual(instrumentations.length, 30);
       for (let i = 0, j = instrumentations.length; i < j; i++) {
         assert.strictEqual(
           instrumentations[i].instrumentationName,

@@ -1,11 +1,11 @@
 # OpenTelemetry Instrumentation GraphQL
 
 [![NPM Published Version][npm-img]][npm-url]
-[![dependencies][dependencies-image]][dependencies-url]
-[![devDependencies][devDependencies-image]][devDependencies-url]
 [![Apache License][license-image]][license-image]
 
-This module provides *automated instrumentation and tracing* for GraphQL in Node.js applications.
+This module provides automatic instrumentation and tracing for GraphQL in Node.js applications, which may be loaded using the [`@opentelemetry/sdk-trace-node`](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/opentelemetry-sdk-trace-node) package and is included in the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle.
+
+If total installation size is not constrained, it is recommended to use the [`@opentelemetry/auto-instrumentations-node`](https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-node) bundle with [@opentelemetry/sdk-node](`https://www.npmjs.com/package/@opentelemetry/sdk-node`) for the most seamless instrumentation experience.
 
 *Note*: graphql plugin instruments graphql directly. it should work with any package that wraps the graphql package (e.g apollo).
 
@@ -72,9 +72,5 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 [discussions-url]: https://github.com/open-telemetry/opentelemetry-js/discussions
 [license-url]: https://github.com/open-telemetry/opentelemetry-js/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[dependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fnode%2Fopentelemetry-instrumentation-graphql
-[dependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fnode%2Fopentelemetry-instrumentation-graphql
-[devDependencies-image]: https://status.david-dm.org/gh/open-telemetry/opentelemetry-js-contrib.svg?path=plugins%2Fnode%2Fopentelemetry-instrumentation-graphql&type=dev
-[devDependencies-url]: https://david-dm.org/open-telemetry/opentelemetry-js-contrib?path=plugins%2Fnode%2Fopentelemetry-instrumentation-graphql&type=dev
 [npm-url]: https://www.npmjs.com/package/@opentelemetry/instrumentation-graphql
 [npm-img]: https://badge.fury.io/js/%40opentelemetry%2Finstrumentation-graphql.svg
