@@ -48,8 +48,6 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   readonly component: string = 'document-load';
   readonly version: string = '1';
   moduleName = this.component;
-  protected _config!: InstrumentationConfig;
-  private _enabled = false;
 
   /**
    *
@@ -228,8 +226,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    * executes callback {_onDocumentLoaded} when the page is loaded
    */
   private _waitForPageLoad() {
-    if (window.document.readyState === 'complete' && !this._enabled) {
-      this._enabled = true;
+    if (window.document.readyState === 'complete') {
       this._onDocumentLoaded();
     } else {
       this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
