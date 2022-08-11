@@ -57,8 +57,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
   >();
   private _eventNames: Set<EventName>;
   private _shouldPreventSpanCreation: ShouldPreventSpanCreation;
-  private lastCreatedSpan: api.Span;
-  private __hashChangeHandler: (event: Event) => void;
 
   constructor(config?: UserInteractionInstrumentationConfig) {
     super('@opentelemetry/instrumentation-user-interaction', VERSION, config);
@@ -118,8 +116,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
           ? api.trace.setSpan(api.context.active(), parentSpan)
           : undefined
       );
-
-      this.lastCreatedSpan = span;
 
       if (this._shouldPreventSpanCreation(eventName, element, span) === true) {
         return undefined;
@@ -234,12 +230,15 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
           const eventSpan = event && plugin._eventsSpanMap.get(event)
           const span = eventSpan || plugin._createSpan(target, type);
           if (span) {
+            const spansData = plugin._spansData.get(span)!
             if (event && !eventSpan) {
               plugin._eventsSpanMap.set(event, span);
+              // end span when all other listeners ends
+              setTimeout(() => {
+                span.end(spansData.lastListenerEndHrTime)
+              })
             }
-
-            const spansData = plugin._spansData.get(span)!
-            const result = api.context.with(
+            return api.context.with(
               api.trace.setSpan(api.context.active(), span),
               () => {
                 const result = plugin._invokeListener(listener, this, args);
@@ -247,13 +246,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
                 return result;
               }
             );
-            if (event && !eventSpan) {
-              // end span when all other listeners ends
-              setTimeout(() => {
-                span.end(spansData.lastListenerEndHrTime)
-              })
-            }
-            return result;
           }
           return plugin._invokeListener(listener, this, args);
         };
@@ -374,17 +366,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       this.version,
     );
 
-    const that = this;
-
-    this.__hashChangeHandler = (event: Event) => {
-      const hashChangeEvent = event as HashChangeEvent;
-      if (that.lastCreatedSpan && typeof that.lastCreatedSpan.updateName === 'function') {
-        that.lastCreatedSpan.updateName(`${EVENT_NAVIGATION_NAME} ${hashChangeEvent.newURL}`);
-      }
-    };
-
-    window.addEventListener('hashchange', this.__hashChangeHandler);
-
     const targets = this._getPatchableEventTargets();
     targets.forEach(target => {
       this._wrap(target, 'addEventListener', this._patchAddEventListener());
@@ -409,7 +390,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<unknown>
       this.moduleName,
       this.version,
     );
-    window.removeEventListener('hashchange', this.__hashChangeHandler);
     const targets = this._getPatchableEventTargets();
     targets.forEach(target => {
       if (isWrapped(target.addEventListener)) {
