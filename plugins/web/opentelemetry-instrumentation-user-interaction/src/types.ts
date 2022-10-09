@@ -67,6 +67,7 @@ export interface SpanData {
   lastListenerEndHrTime?: HrTime
   hrTimeLastTimeout?: HrTime;
   taskCount: number;
+  currentLocation?: string;
 }
 
 /**
