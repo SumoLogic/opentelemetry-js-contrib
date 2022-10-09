@@ -40,8 +40,10 @@ export type RunTaskFunction = (
  * interface to store information in weak map per span
  */
 export interface SpanData {
+  lastListenerEndHrTime?: HrTime
   hrTimeLastTimeout?: HrTime;
   taskCount: number;
+  currentLocation?: string;
 }
 
 /**
