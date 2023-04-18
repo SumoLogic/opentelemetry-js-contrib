@@ -221,7 +221,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   ): Span | undefined {
     if (
       hasKey(entries, performanceName) &&
-      typeof entries[performanceName] === 'number'
+      typeof entries[performanceName] === 'number' &&
+      !Number.isNaN(entries[performanceName])
     ) {
       const span = this.tracer.startSpan(
         spanName,
