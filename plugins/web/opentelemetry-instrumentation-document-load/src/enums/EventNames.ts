@@ -20,5 +20,6 @@ export enum EventNames {
   LARGEST_CONTENTFUL_PAINT = 'largestContentfulPaint',
   CUMULATIVE_LAYOUT_SHIFT = 'cumulativeLayoutShift',
   FIRST_INPUT_DELAY = 'firstInputDelay',
-  TIME_TO_FIRST_BYTE = 'timeToFirstByte'
+  TIME_TO_FIRST_BYTE = 'timeToFirstByte',
+  INTERACTION_TO_NEXT_PAINT = 'interactionToNextPaint'
 }

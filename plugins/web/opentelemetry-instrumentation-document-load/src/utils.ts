@@ -66,7 +66,8 @@ const vitalsMetricNames: Record<Metric['name'], EventNames> = {
   FID: EventNames.FIRST_INPUT_DELAY,
   TTFB: EventNames.TIME_TO_FIRST_BYTE,
   LCP: EventNames.LARGEST_CONTENTFUL_PAINT,
-  CLS: EventNames.CUMULATIVE_LAYOUT_SHIFT
+  CLS: EventNames.CUMULATIVE_LAYOUT_SHIFT,
+  INP: EventNames.INTERACTION_TO_NEXT_PAINT
 };
 
 const performancePaintNames: Record<string, EventNames> = {
