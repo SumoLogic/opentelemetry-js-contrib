@@ -68,6 +68,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     // Timeout is needed as load event doesn't have yet the performance metrics for loadEnd.
     // Support for event "loadend" is very limited and cannot be used
     window.setTimeout(() => {
+      this._increasePerformanceBufferSize();
       this._collectPerformance();
     });
   }
@@ -85,6 +86,17 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         this._initResourceSpan(resource, rootSpan);
       });
     }
+  }
+
+  /**
+   * Browsers set the default Performance API buffer size to 250 or greater (it's 250 on Chrome 107).
+   * Some websites may load more scripts, so we need to increase buffer size limit dynamically.
+   */
+  private _increasePerformanceBufferSize() {
+    const increaseBufferSize = () => {
+      otperformance.setResourceTimingBufferSize(otperformance.getEntries().length + 500);
+    }
+    otperformance.addEventListener('resourcetimingbufferfull', increaseBufferSize);
   }
 
   /**
