@@ -179,6 +179,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         span.end(entries[performanceName]);
       } else {
         // just end span
+        span.setAttribute(`missedPerformanceEntry.${performanceName}`, JSON.stringify(entries));
         span.end();
       }
     }
