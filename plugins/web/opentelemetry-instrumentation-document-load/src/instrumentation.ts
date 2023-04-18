@@ -222,8 +222,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   ): Span | undefined {
     if (
       hasKey(entries, performanceName) &&
-      typeof entries[performanceName] === 'number' &&
-      !Number.isNaN(entries[performanceName])
+      typeof entries[performanceName] === 'number'
     ) {
       const span = this.tracer.startSpan(
         spanName,
@@ -233,6 +232,9 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         parentSpan ? trace.setSpan(context.active(), parentSpan) : undefined
       );
       span.setAttribute(AttributeNames.COMPONENT, this.component);
+      if (Number.isNaN(entries[performanceName])) {
+        span.setAttribute('wrongPerformanceEntryValue', performanceName);
+      }
       return span;
     }
     return undefined;
