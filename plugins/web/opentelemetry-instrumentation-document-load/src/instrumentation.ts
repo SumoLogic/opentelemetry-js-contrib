@@ -175,11 +175,11 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   ) {
     // span can be undefined when entries are missing the certain performance - the span will not be created
     if (span) {
+      span.setAttribute(`performanceEntries.${performanceName}`, JSON.stringify(entries));
       if (hasKey(entries, performanceName)) {
         span.end(entries[performanceName]);
       } else {
         // just end span
-        span.setAttribute(`missedPerformanceEntry.${performanceName}`, JSON.stringify(entries));
         span.end();
       }
     }
