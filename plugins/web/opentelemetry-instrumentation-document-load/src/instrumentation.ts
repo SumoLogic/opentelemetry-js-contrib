@@ -67,6 +67,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   private _onDocumentLoaded() {
     // Timeout is needed as load event doesn't have yet the performance metrics for loadEnd.
     // Support for event "loadend" is very limited and cannot be used
+    console.info(Date.now(), new Date(), '_onDocumentLoaded function call');
     window.setTimeout(() => {
       this._increasePerformanceBufferSize();
       this._collectPerformance();
@@ -107,6 +108,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       e => e.getAttribute('name') === TRACE_PARENT_HEADER
     );
     const entries = getPerformanceNavigationEntries();
+    console.info(Date.now(), new Date(), '_collectPerformance call - entries: ', JSON.stringify(entries));
     const traceparent = (metaElement && metaElement.content) || '';
     context.with(propagation.extract(ROOT_CONTEXT, { traceparent }), () => {
       const rootSpan = this._startSpan(
@@ -175,6 +177,9 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   ) {
     // span can be undefined when entries are missing the certain performance - the span will not be created
     if (span) {
+      if (performanceName === PTN.LOAD_EVENT_END) {
+        console.info(Date.now(), new Date(), '_endSpan function call for root span', performanceName, 'time: ', entries[performanceName],  JSON.stringify(entries));
+      }
       span.setAttribute(`performanceEntries.${performanceName}`, JSON.stringify(entries));
       if (hasKey(entries, performanceName)) {
         span.end(entries[performanceName]);
@@ -235,6 +240,9 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       if (Number.isNaN(entries[performanceName])) {
         span.setAttribute('wrongPerformanceEntryValue', performanceName);
       }
+      if (spanName === AttributeNames.DOCUMENT_LOAD) {
+        console.info(Date.now(), new Date(), 'starting documentLoad span - startTime:', entries[performanceName], 'entries: ', JSON.stringify(entries));
+      }
       return span;
     }
     return undefined;
@@ -247,9 +255,11 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     if (window.document.readyState === 'complete' && !this._enabled) {
       this._enabled = true;
       this._onDocumentLoaded();
+      console.info(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - first time');
     } else {
       this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
       window.addEventListener('load', this._onDocumentLoaded);
+      console.info(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - else');
     }
   }
 
@@ -259,6 +269,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   override enable() {
     // remove previously attached load to avoid adding the same event twice
     // in case of multiple enable calling.
+    console.info(Date.now(), new Date(), 'enabling documentLoad span instrumentation');
     window.removeEventListener('load', this._onDocumentLoaded);
     this._waitForPageLoad();
   }

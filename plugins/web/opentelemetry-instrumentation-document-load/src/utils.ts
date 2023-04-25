@@ -96,6 +96,8 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
         otperformance as unknown as Performance
       ).getEntriesByType?.('paint');
 
+      console.info(Date.now(), new Date(), 'utils: addSpanPerformancePaintEvents - endSpan function call - performancePaintTiming', JSON.stringify(performancePaintTiming));
+
       if (performancePaintTiming) {
         performancePaintTiming.forEach(({ name, startTime }) => {
           if (hasKey(performancePaintNames, name)) {
@@ -115,13 +117,20 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
   const handleNewMetric = (metric: Metric) => {
     missedMetrics.delete(metric.name);
     metrics[vitalsMetricNames[metric.name]] = metric.value;
+    console.info(Date.now(), new Date(), 'utils: handleNewMetric - endSpan call', metric.name, vitalsMetricNames[metric.name], metric.value);
     if (!missedMetrics.size) {
       endSpan();
     }
   }
 
-  document.addEventListener('visibilitychange', endSpan);
-  globalThis.addEventListener('pagehide', endSpan);
+  document.addEventListener('visibilitychange', () => {
+    console.info(Date.now(), new Date(), 'utils: visibilitychange - endSpan call');
+    endSpan();
+  });
+  globalThis.addEventListener('pagehide', () => {
+    console.info(Date.now(), new Date(), 'utils: pagehide - endSpan call');
+    endSpan();
+  });
 
   getCLS(handleNewMetric);
   getFCP(handleNewMetric);
