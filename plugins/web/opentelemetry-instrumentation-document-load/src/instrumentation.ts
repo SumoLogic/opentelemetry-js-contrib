@@ -67,7 +67,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   private _onDocumentLoaded() {
     // Timeout is needed as load event doesn't have yet the performance metrics for loadEnd.
     // Support for event "loadend" is very limited and cannot be used
-    console.info(Date.now(), new Date(), '_onDocumentLoaded function call');
+    // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_onDocumentLoaded function call');
     window.setTimeout(() => {
       this._increasePerformanceBufferSize();
       this._collectPerformance();
@@ -108,7 +109,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       e => e.getAttribute('name') === TRACE_PARENT_HEADER
     );
     const entries = getPerformanceNavigationEntries();
-    console.info(Date.now(), new Date(), '_collectPerformance call - entries: ', JSON.stringify(entries));
+    // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_collectPerformance call - entries: ', JSON.stringify(entries));
     const traceparent = (metaElement && metaElement.content) || '';
     context.with(propagation.extract(ROOT_CONTEXT, { traceparent }), () => {
       const rootSpan = this._startSpan(
@@ -178,7 +180,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     // span can be undefined when entries are missing the certain performance - the span will not be created
     if (span) {
       if (performanceName === PTN.LOAD_EVENT_END) {
-        console.info(Date.now(), new Date(), '_endSpan function call for root span', performanceName, 'time: ', entries[performanceName],  JSON.stringify(entries));
+        // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_endSpan function call for root span', performanceName, 'time: ', entries[performanceName],  JSON.stringify(entries));
       }
       span.setAttribute(`performanceEntries.${performanceName}`, JSON.stringify(entries));
       if (hasKey(entries, performanceName)) {
@@ -241,7 +244,8 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         span.setAttribute('wrongPerformanceEntryValue', performanceName);
       }
       if (spanName === AttributeNames.DOCUMENT_LOAD) {
-        console.info(Date.now(), new Date(), 'starting documentLoad span - startTime:', entries[performanceName], 'entries: ', JSON.stringify(entries));
+        // @ts-ignore
+        window.logOnScreen(Date.now(), new Date(), 'starting documentLoad span - startTime:', entries[performanceName], 'entries: ', JSON.stringify(entries));
       }
       return span;
     }
@@ -252,14 +256,18 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    * executes callback {_onDocumentLoaded} when the page is loaded
    */
   private _waitForPageLoad() {
+    // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_waitForPageLoad window.document.readyState', window.document.readyState);
     if (window.document.readyState === 'complete' && !this._enabled) {
       this._enabled = true;
       this._onDocumentLoaded();
-      console.info(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - first time');
+      // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - first time');
     } else {
       this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
       window.addEventListener('load', this._onDocumentLoaded);
-      console.info(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - else');
+      // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), '_waitForPageLoad documentLoad span instrumentation - else');
     }
   }
 
@@ -267,9 +275,16 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    * implements enable function
    */
   override enable() {
+    // @ts-ignore
+    window.logOnScreen = (...args: string[]) => {
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>${args.join(' ')}</strong>`;
+      document.body.prepend(div);
+    }
     // remove previously attached load to avoid adding the same event twice
     // in case of multiple enable calling.
-    console.info(Date.now(), new Date(), 'enabling documentLoad span instrumentation');
+    // @ts-ignore
+    window.logOnScreen(Date.now(), new Date(), 'enabling documentLoad span instrumentation');
     window.removeEventListener('load', this._onDocumentLoaded);
     this._waitForPageLoad();
   }
