@@ -87,8 +87,10 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
 
   let spanIsEnded = false;
 
-  const endSpan = () => {
+  const endSpan = (reason: string = 'null') => {
+    // @ts-ignore
     document.removeEventListener('visibilitychange', endSpan);
+    // @ts-ignore
     globalThis.removeEventListener('pagehide', endSpan);
     if (!spanIsEnded) {
       // collect first-paint as it's not a part of web-vitals
@@ -97,7 +99,7 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
       ).getEntriesByType?.('paint');
 
       // @ts-ignore
-    window.logOnScreen(Date.now(), new Date(), 'utils: addSpanPerformancePaintEvents - endSpan function call - performancePaintTiming', JSON.stringify(performancePaintTiming));
+      window.logOnScreen('utils.ts:102 - addSpanPerformancePaintEvents() - endSpan() - reason:', reason);
 
       if (performancePaintTiming) {
         performancePaintTiming.forEach(({ name, startTime }) => {
@@ -119,21 +121,21 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
     missedMetrics.delete(metric.name);
     metrics[vitalsMetricNames[metric.name]] = metric.value;
     // @ts-ignore
-    window.logOnScreen(Date.now(), new Date(), 'utils: handleNewMetric - endSpan call', metric.name, vitalsMetricNames[metric.name], metric.value);
+    window.logOnScreen('utils.ts:124 - addSpanPerformancePaintEvents() - handleNewMetric', metric.name, vitalsMetricNames[metric.name], metric.value);
     if (!missedMetrics.size) {
-      endSpan();
+      endSpan('handleNewMetric end');
     }
   }
 
   document.addEventListener('visibilitychange', () => {
     // @ts-ignore
-    window.logOnScreen(Date.now(), new Date(), 'utils: visibilitychange - endSpan call');
-    endSpan();
+    window.logOnScreen('utils.ts:132 - addSpanPerformancePaintEvents() - visibilitychange call');
+    endSpan('visibilitychange');
   });
   globalThis.addEventListener('pagehide', () => {
     // @ts-ignore
-    window.logOnScreen(Date.now(), new Date(), 'utils: pagehide - endSpan call');
-    endSpan();
+    window.logOnScreen('utils.ts:137 - addSpanPerformancePaintEvents() - pagehide call');
+    endSpan('pagehide');
   });
 
   getCLS(handleNewMetric);
