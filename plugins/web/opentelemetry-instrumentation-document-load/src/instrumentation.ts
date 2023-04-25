@@ -181,7 +181,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     if (span) {
       if (performanceName === PTN.LOAD_EVENT_END) {
         // @ts-ignore
-    window.logOnScreen(Date.now(), new Date(), '_endSpan function call for root span', performanceName, 'time: ', entries[performanceName],  JSON.stringify(entries));
+        window.logOnScreen(Date.now(), new Date(), '_endSpan function call for root span', performanceName, 'time: ', entries[performanceName],  JSON.stringify(entries));
       }
       span.setAttribute(`performanceEntries.${performanceName}`, JSON.stringify(entries));
       if (hasKey(entries, performanceName)) {
@@ -278,6 +278,9 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     // @ts-ignore
     window.logOnScreen = (...args: string[]) => {
       const div = document.createElement('div');
+      div.style.background = 'red';
+      div.style.marginBottom = '3px';
+      div.style.wordWrap = 'break-word';
       div.innerHTML = `<strong>${args.join(' ')}</strong>`;
       document.body.prepend(div);
     }
