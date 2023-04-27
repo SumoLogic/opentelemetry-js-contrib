@@ -286,7 +286,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     // remove previously attached load to avoid adding the same event twice
     // in case of multiple enable calling.
     // @ts-ignore
-    window.logOnScreen('instrumentation.ts:291 - enable() - enable documentLoad span instrumentation');
+    window.logOnScreen('instrumentation.ts:289 - enable() - enable documentLoad span instrumentation');
     window.removeEventListener('load', this._onDocumentLoaded);
     this._waitForPageLoad();
   }
