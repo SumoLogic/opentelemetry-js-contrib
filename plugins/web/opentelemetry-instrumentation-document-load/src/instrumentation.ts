@@ -275,13 +275,13 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   override enable() {
     // @ts-ignore
     window.logOnScreen = (...args: string[]) => {
-      const messages = [Date.now(), new Date().toLocaleString(), performance.now(), ...args];
-      const div = document.createElement('div');
-      div.style.background = 'lightcyan';
-      div.style.marginBottom = '3px';
-      div.style.wordWrap = 'break-word';
-      div.innerHTML = `<strong>${messages.join(' ')}</strong>`;
-      document.body.prepend(div);
+      // const messages = [Date.now(), new Date().toLocaleString(), performance.now(), ...args];
+      // const div = document.createElement('div');
+      // div.style.background = 'lightcyan';
+      // div.style.marginBottom = '3px';
+      // div.style.wordWrap = 'break-word';
+      // div.innerHTML = `<strong>${messages.join(' ')}</strong>`;
+      // document.body.prepend(div);
     }
     // remove previously attached load to avoid adding the same event twice
     // in case of multiple enable calling.
