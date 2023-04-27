@@ -275,7 +275,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   override enable() {
     // @ts-ignore
     window.logOnScreen = (...args: string[]) => {
-      const messages = [Date.now(), new Date().toLocaleString(), ...args];
+      const messages = [Date.now(), new Date().toLocaleString(), performance.now(), ...args];
       const div = document.createElement('div');
       div.style.background = 'lightcyan';
       div.style.marginBottom = '3px';
