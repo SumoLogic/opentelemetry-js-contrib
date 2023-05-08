@@ -20,8 +20,13 @@ import {
   trace,
   Span,
   ROOT_CONTEXT,
+  diag,
 } from '@opentelemetry/api';
-import { otperformance, TRACE_PARENT_HEADER } from '@opentelemetry/core';
+import {
+  otperformance,
+  TRACE_PARENT_HEADER,
+  getTimeOrigin,
+} from '@opentelemetry/core';
 import {
   addSpanNetworkEvent,
   addSpanNetworkEvents,
@@ -81,7 +86,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       otperformance as unknown as Performance
     ).getEntriesByType?.('resource') as PerformanceResourceTiming[];
     if (resources) {
-      resources.forEach(resource => {
+      resources.forEach((resource) => {
         this._initResourceSpan(resource, rootSpan);
       });
     }
@@ -92,15 +97,16 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    */
   private _collectPerformance() {
     const metaElement = Array.from(document.getElementsByTagName('meta')).find(
-      e => e.getAttribute('name') === TRACE_PARENT_HEADER
+      (e) => e.getAttribute('name') === TRACE_PARENT_HEADER,
     );
     const entries = getPerformanceNavigationEntries();
+    const rootSpanEndTime = this._getRootSpanEndTime(entries);
     const traceparent = (metaElement && metaElement.content) || '';
     context.with(propagation.extract(ROOT_CONTEXT, { traceparent }), () => {
       const rootSpan = this._startSpan(
         AttributeNames.DOCUMENT_LOAD,
         PTN.FETCH_START,
-        entries
+        entries,
       );
       if (!rootSpan) {
         return;
@@ -109,11 +115,14 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         const fetchSpan = this._startSpan(
           AttributeNames.DOCUMENT_FETCH,
           PTN.FETCH_START,
-          entries
+          entries,
         );
         if (fetchSpan) {
           fetchSpan.setAttribute(SemanticAttributes.HTTP_URL, location.href);
-          fetchSpan.setAttribute(SemanticAttributes.HTTP_USER_AGENT, navigator.userAgent);
+          fetchSpan.setAttribute(
+            SemanticAttributes.HTTP_USER_AGENT,
+            navigator.userAgent,
+          );
           context.with(trace.setSpan(context.active(), fetchSpan), () => {
             addSpanNetworkEvents(fetchSpan, entries);
             this._endSpan(fetchSpan, PTN.RESPONSE_END, entries);
@@ -124,7 +133,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       rootSpan.setAttribute(SemanticAttributes.HTTP_URL, location.href);
       rootSpan.setAttribute(
         SemanticAttributes.HTTP_USER_AGENT,
-        navigator.userAgent
+        navigator.userAgent,
       );
       rootSpan.setAttribute(AttributeNames.PAGE_TITLE, document.title);
 
@@ -137,7 +146,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       addSpanNetworkEvent(
         rootSpan,
         PTN.DOM_CONTENT_LOADED_EVENT_START,
-        entries
+        entries,
       );
       addSpanNetworkEvent(rootSpan, PTN.DOM_CONTENT_LOADED_EVENT_END, entries);
       addSpanNetworkEvent(rootSpan, PTN.DOM_COMPLETE, entries);
@@ -145,9 +154,27 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
       addSpanNetworkEvent(rootSpan, PTN.LOAD_EVENT_END, entries);
 
       addSpanPerformancePaintEvents(rootSpan, () => {
-        this._endSpan(rootSpan, PTN.LOAD_EVENT_END, entries);
+        if (rootSpanEndTime) {
+          rootSpan.end(rootSpanEndTime);
+        } else {
+          diag.warn(
+            'loadEventEnd event not present in performance entries.',
+          );
+
+          rootSpan.end();
+        }
       });
     });
+  }
+
+  private _getRootSpanEndTime(entries: PerformanceEntries): Date | null {
+    const loadEventEndTime = entries[PTN.LOAD_EVENT_END];
+
+    if (typeof loadEventEndTime !== 'number') {
+      return null;
+    }
+
+    return new Date(getTimeOrigin() + loadEventEndTime);
   }
 
   /**
@@ -159,7 +186,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   private _endSpan(
     span: Span | undefined,
     performanceName: string,
-    entries: PerformanceEntries
+    entries: PerformanceEntries,
   ) {
     // span can be undefined when entries are missing the certain performance - the span will not be created
     if (span) {
@@ -179,13 +206,13 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
    */
   private _initResourceSpan(
     resource: PerformanceResourceTiming,
-    parentSpan: Span
+    parentSpan: Span,
   ) {
     const span = this._startSpan(
       AttributeNames.RESOURCE_FETCH,
       PTN.FETCH_START,
       resource,
-      parentSpan
+      parentSpan,
     );
     if (span) {
       span.setAttribute(SemanticAttributes.HTTP_URL, resource.name);
@@ -205,7 +232,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
     spanName: string,
     performanceName: string,
     entries: PerformanceEntries,
-    parentSpan?: Span
+    parentSpan?: Span,
   ): Span | undefined {
     if (
       hasKey(entries, performanceName) &&
@@ -216,7 +243,7 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
         {
           startTime: entries[performanceName],
         },
-        parentSpan ? trace.setSpan(context.active(), parentSpan) : undefined
+        parentSpan ? trace.setSpan(context.active(), parentSpan) : undefined,
       );
       span.setAttribute(AttributeNames.COMPONENT, this.component);
       return span;
