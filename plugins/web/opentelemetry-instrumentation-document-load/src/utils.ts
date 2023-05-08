@@ -15,7 +15,7 @@
  */
 
 import { Span } from '@opentelemetry/api';
-import { otperformance } from '@opentelemetry/core';
+import { otperformance, getTimeOrigin } from '@opentelemetry/core';
 import {
   hasKey,
   PerformanceEntries,
@@ -66,7 +66,7 @@ const vitalsMetricNames: Record<Metric['name'], EventNames> = {
   FID: EventNames.FIRST_INPUT_DELAY,
   TTFB: EventNames.TIME_TO_FIRST_BYTE,
   LCP: EventNames.LARGEST_CONTENTFUL_PAINT,
-  CLS: EventNames.CUMULATIVE_LAYOUT_SHIFT
+  CLS: EventNames.CUMULATIVE_LAYOUT_SHIFT,
 };
 
 const performancePaintNames: Record<string, EventNames> = {
@@ -75,9 +75,12 @@ const performancePaintNames: Record<string, EventNames> = {
 
 const vitalsMetricAsAttributes = new Set([EventNames.CUMULATIVE_LAYOUT_SHIFT])
 
-export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) => {
-  const metrics: Partial<Record<EventNames, number>> = {}
-  const missedMetrics: Set<Metric['name']> = new Set(['FCP', 'FID', 'TTFB'])
+export const addSpanPerformancePaintEvents = (
+  span: Span,
+  callback: () => void,
+) => {
+  const metrics: Partial<Record<EventNames, Date>> = {};
+  const missedMetrics: Set<Metric['name']> = new Set(['FCP', 'FID', 'TTFB']);
   if ('chrome' in globalThis) {
     // LCP and CLS are only available in chromium according to web-vitals README
     missedMetrics.add('LCP');
@@ -98,26 +101,34 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
       if (performancePaintTiming) {
         performancePaintTiming.forEach(({ name, startTime }) => {
           if (hasKey(performancePaintNames, name)) {
-            metrics[performancePaintNames[name]] = startTime;
+            metrics[performancePaintNames[name]] = new Date(
+              getTimeOrigin() + startTime,
+            );
           }
         });
       }
 
       spanIsEnded = true;
       Object.entries(metrics).forEach(([metric, value]) => {
-        span[vitalsMetricAsAttributes.has(metric as EventNames) ? 'setAttribute' : 'addEvent'](metric, value);
-      })
+        if (vitalsMetricAsAttributes.has(metric as EventNames)) {
+          span.setAttribute(metric, value.getTime());
+        } else {
+          span.addEvent(metric, value);
+        }
+      });
       callback();
     }
-  }
+  };
 
   const handleNewMetric = (metric: Metric) => {
     missedMetrics.delete(metric.name);
-    metrics[vitalsMetricNames[metric.name]] = metric.value;
+    metrics[vitalsMetricNames[metric.name]] = new Date(
+      getTimeOrigin() + metric.value,
+    );
     if (!missedMetrics.size) {
       endSpan();
     }
-  }
+  };
 
   document.addEventListener('visibilitychange', endSpan);
   globalThis.addEventListener('pagehide', endSpan);
@@ -138,7 +149,9 @@ export const addSpanPerformancePaintEvents = (span: Span, callback: () => void) 
       const [lcpRecord] = observer.takeRecords();
       if (lcpRecord) {
         missedMetrics.delete('LCP');
-        metrics[EventNames.LARGEST_CONTENTFUL_PAINT] = lcpRecord.startTime;
+        metrics[EventNames.LARGEST_CONTENTFUL_PAINT] = new Date(
+          getTimeOrigin() + lcpRecord.startTime,
+        );
       }
     }
   }
