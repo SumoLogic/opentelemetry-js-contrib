@@ -53,7 +53,6 @@ export class DocumentLoadInstrumentation extends InstrumentationBase<unknown> {
   readonly component: string = 'document-load';
   readonly version: string = '1';
   moduleName = this.component;
-  protected _config!: InstrumentationConfig;
   private _enabled = false;
 
   /**
