@@ -46,7 +46,7 @@ const getCurrentLocation = () => `${location.pathname}${location.search}${locati
  * This class represents a UserInteraction plugin for auto instrumentation.
  * It patches addEventListener of HTMLElement.
  */
-export class UserInteractionInstrumentation extends InstrumentationBase<unknown> {
+export class UserInteractionInstrumentation extends InstrumentationBase {
   readonly version = VERSION;
   readonly moduleName: string = 'user-interaction';
   private _spansData = new WeakMap<api.Span, SpanData>();
