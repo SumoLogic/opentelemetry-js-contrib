@@ -54,8 +54,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
   >();
   private _eventNames: Set<EventName>;
   private _shouldPreventSpanCreation: ShouldPreventSpanCreation;
-  private lastCreatedSpan: api.Span;
-  private __hashChangeHandler: (event: Event) => void;
 
   constructor(config: UserInteractionInstrumentationConfig = {}) {
     super(PACKAGE_NAME, PACKAGE_VERSION, config);
@@ -115,8 +113,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
         },
         api.ROOT_CONTEXT
       );
-
-      this.lastCreatedSpan = span;
 
       if (this._shouldPreventSpanCreation(eventName, element, span) === true) {
         return undefined;
@@ -237,16 +233,22 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
             const result = api.context.with(
               api.trace.setSpan(api.context.active(), span),
               () => {
+                if (spansData.currentLocation === undefined) {
+                  spansData.currentLocation = getCurrentLocation();
+                }
                 const result = plugin._invokeListener(listener, this, args);
-                spansData.lastListenerEndHrTime = hrTime()
+                spansData.lastListenerEndHrTime = hrTime();
                 return result;
               }
             );
             if (event && !eventSpan) {
-              // end span when all other listeners end and wait 100ms for possible navigation change
+              // end span when all other listeners end and wait for possible navigation change
               setTimeout(() => {
+                if (spansData.currentLocation !== getCurrentLocation()) {
+                  plugin._updateSpanAsNavigation(span);
+                }
                 span.end(spansData.lastListenerEndHrTime)
-              }, 100)
+              }, 200)
             }
             return result;
           }
@@ -312,48 +314,14 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
       : [Node.prototype, Window.prototype];
   }
 
-  /**
-   * Patches the history api
-   */
-  _patchHistoryApi() {
-    if (!this._isEnabled) return;
-    this._wrap(history, 'replaceState', this._patchHistoryMethod());
-    this._wrap(history, 'pushState', this._patchHistoryMethod());
-    this._wrap(history, 'back', this._patchHistoryMethod());
-    this._wrap(history, 'forward', this._patchHistoryMethod());
-    this._wrap(history, 'go', this._patchHistoryMethod());
-  }
-
-  /**
-   * Patches the certain history api method
-   */
-  _patchHistoryMethod() {
-    const plugin = this;
-    return (original: any) => {
-      return function patchHistoryMethod(this: History, ...args: unknown[]) {
-        if (!plugin._isEnabled) {
-          return original.apply(this, args);
-        }
-        const url = getCurrentLocation();
-        const result = original.apply(this, args);
-        const urlAfter = getCurrentLocation();
-        if (url !== urlAfter) {
-          plugin._updateSpanAsNavigation(api.trace.getSpan(api.context.active()));
-        }
-        return result;
-      };
-    };
-  }
 
   /**
    * Updates interaction span name
    * @param url
    */
-  _updateSpanAsNavigation(span?: api.Span) {
-    if (span && typeof span.updateName === 'function') {
-      span.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
-      span.setAttribute(NEW_LOCATION_HREF, location.href);
-    }
+  _updateSpanAsNavigation(span: api.Span) {
+    span.updateName(`${EVENT_NAVIGATION_NAME} ${getCurrentLocation()}`);
+    span.setAttribute(NEW_LOCATION_HREF, location.href);
   }
 
 
@@ -384,12 +352,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
 
     this._diag.debug('applying patch to', this.moduleName, this.version);
 
-    this.__hashChangeHandler = () => {
-      this._updateSpanAsNavigation(this.lastCreatedSpan);
-    };
-
-    window.addEventListener('hashchange', this.__hashChangeHandler);
-
     const targets = this._getPatchableEventTargets();
     targets.forEach(target => {
       this._wrap(target, 'addEventListener', this._patchAddEventListener());
@@ -399,8 +361,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
         this._patchRemoveEventListener()
       );
     });
-
-    this._patchHistoryApi();
   }
 
   /**
@@ -414,7 +374,6 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
 
     this._diag.debug('removing patch from', this.moduleName, this.version);
 
-    window.removeEventListener('hashchange', this.__hashChangeHandler);
     const targets = this._getPatchableEventTargets();
     targets.forEach(target => {
       if (isWrapped(target.addEventListener)) {

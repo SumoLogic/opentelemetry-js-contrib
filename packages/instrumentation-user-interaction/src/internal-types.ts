@@ -31,7 +31,9 @@ export type RunTaskFunction = (
  */
 export interface SpanData {
   hrTimeLastTimeout?: HrTime;
+  lastListenerEndHrTime?: HrTime;
   taskCount: number;
+  currentLocation?: string;
 }
 
 /**
