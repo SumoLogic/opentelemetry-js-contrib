@@ -139,6 +139,9 @@ export class UserInteractionInstrumentation extends InstrumentationBase<UserInte
     listener: Function | EventListenerObject,
     wrappedListener: Function
   ): boolean {
+    if (!on || !listener || (typeof listener !== 'object' && typeof listener !== 'function')) {
+      return false;
+    }
     let listener2Type = this._wrappedListeners.get(listener);
     if (!listener2Type) {
       listener2Type = new Map();
